@@ -1,11 +1,11 @@
 # StockTracker
 
-Aplicação pessoal de gestão de portfólio de investimentos, watchlist, transações e
-orçamento mensal — corre localmente, sem dependências externas além do Python.
+App pessoal para gestão de portfólio, transações, e estudo de investimentos, e
+orçamento mensal.
 
 ## Estrutura
 
-Backend em Python puro (`http.server`, sem frameworks) + frontend em HTML/JS/CSS
+Backend em Python (`http.server`, sem frameworks) + frontend em HTML/JS/CSS
 vanilla, tudo em `webapp/`.
 
 ## Funcionalidades
