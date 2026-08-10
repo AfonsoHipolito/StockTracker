@@ -1,5 +1,52 @@
 # StockTracker
 
+Personal app for investment portfolio management, watchlist, transactions and
+monthly budgeting — runs locally, no external dependencies beyond Python.
+
+## Structure
+
+Pure Python backend (`http.server`, no frameworks) + vanilla HTML/JS/CSS
+frontend, all under `webapp/`.
+
+## Features
+
+- **Portfolio** — positions by asset type (ETFs, stocks, crypto, real estate...),
+  real-time prices via [yfinance](https://pypi.org/project/yfinance/), allocation chart.
+- **Watchlist** — lists of assets to track.
+- **Transactions** — record of buys, sells, and dividends.
+- **Performance** — portfolio evolution over time.
+- **Income** — monthly budget by category and fixed bills, with month-by-month
+  history and automatic calculation of the amount invested (from recorded
+  transactions).
+
+## Getting started
+
+```sh
+cd webapp
+./setup.sh   # creates the venv and installs dependencies
+./webapp.sh  # starts the server at http://localhost:8080 (creates an empty DB)
+```
+
+## Data
+
+All information (positions, transactions, income, watchlist, plans, history,
+and analysis) lives in a local SQLite database,
+`webapp/db/stocktracker.db` — **git-ignored** (`.gitignore`), never to be
+published. It's created automatically, empty, on the server's first run
+(`server.py`). See `webapp/db/examples/` for sample files showing the format
+expected by each endpoint.
+
+## Requirements
+
+- Python 3.10+
+
+
+
+=== === === === === === === === === === === === === ===
+
+
+# StockTracker
+
 App pessoal para gestão de portfólio, transações, e estudo de investimentos, e
 orçamento mensal.
 
