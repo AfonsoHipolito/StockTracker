@@ -1,12 +1,12 @@
 # StockTracker
 
-Personal app for investment portfolio management, watchlist, transactions and
-monthly budgeting — runs locally, no external dependencies beyond Python.
+Personal app for portfolio management, transactions, investment research, and
+monthly budgeting.
 
 ## Structure
 
-Pure Python backend (`http.server`, no frameworks) + vanilla HTML/JS/CSS
-frontend, all under `webapp/`.
+Backend in Python (`http.server`, no frameworks) + frontend in vanilla
+HTML/JS/CSS, all under `webapp/`.
 
 ## Features
 
@@ -30,16 +30,15 @@ cd webapp
 ## Data
 
 All information (positions, transactions, income, watchlist, plans, history,
-and analysis) lives in a local SQLite database,
-`webapp/db/stocktracker.db` — **git-ignored** (`.gitignore`), never to be
-published. It's created automatically, empty, on the server's first run
-(`server.py`). See `webapp/db/examples/` for sample files showing the format
-expected by each endpoint.
+and analysis) lives in a local SQLite database, `webapp/db/stocktracker.db`
+— **git-ignored** (`.gitignore`), never to be published. It's created
+automatically, empty, on the server's first run (`server.py`). See
+`webapp/db/examples/` for sample files showing the format expected by each
+endpoint.
 
 ## Requirements
 
 - Python 3.10+
-
 
 
 === === === === === === === === === === === === === ===
