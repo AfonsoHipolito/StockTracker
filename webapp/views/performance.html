@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="perf.page_title">Desempenho — StockTracker</title>
+    <link rel="icon" type="image/x-icon" href="images/icon.png">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav id="navbar"></nav>
+
+<div class="perf-page">
+
+    <!-- Summary cards -->
+    <div class="perf-summary-row">
+        <div class="perf-card">
+            <span class="perf-card-label" data-i18n="perf.card_current_value">Valor atual</span>
+            <span class="perf-card-value" id="perf-total">—</span>
+        </div>
+        <div class="perf-card">
+            <span class="perf-card-label" data-i18n="perf.card_total_cost">Custo total</span>
+            <span class="perf-card-value" id="perf-cost">—</span>
+        </div>
+        <div class="perf-card">
+            <span class="perf-card-label">Profit/Loss (€)</span>
+            <span class="perf-card-value" id="perf-pnl-eur">—</span>
+        </div>
+        <div class="perf-card">
+            <span class="perf-card-label">Profit/Loss (%)</span>
+            <span class="perf-card-value" id="perf-pnl-pct">—</span>
+        </div>
+    </div>
+
+    <!-- Category breakdown -->
+    <div class="perf-section-title" data-i18n="perf.by_category">Por categoria</div>
+    <div class="perf-categories" id="perf-categories">
+        <!-- rendered by JS -->
+    </div>
+
+    <!-- Individual positions -->
+    <div class="perf-section-title" style="margin-top:40px" data-i18n="perf.by_position">Por posição</div>
+    <div class="perf-positions-list" id="perf-positions-list">
+        <!-- rendered by JS -->
+    </div>
+
+</div>
+
+<script src="i18n.js"></script>
+<script src="navbar.js"></script>
+<script>
+mountNavbar('performance');
+applyStaticTranslations();
+
+const TYPES = {
+    etf:        { label: t('type.etf'),        color: '#3a8eff' },
+    stock:      { label: t('type.stock'),      color: '#00c896' },
+    commodity:  { label: t('perf.type_commodity'), color: '#ffc000' },
+    crypto:     { label: t('type.crypto'),     color: '#ff8c00' },
+    realestate: { label: t('type.realestate'), color: '#c060ff' },
+    bonds:      { label: t('type.bonds'),      color: '#b0c4de' },
+    juros:      { label: t('perf.type_juros'), color: '#e63946' },
+};
+const TYPE_ORDER = ['etf', 'stock', 'commodity', 'crypto', 'realestate', 'bonds', 'juros'];
+
+const fmtEur  = v => v.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+const fmt2    = v => v.toFixed(2).replace('.', ',');
+const sign    = v => v >= 0 ? '+' : '−';
+const cls     = v => v >= 0 ? 'up' : 'down';
+const arrow   = v => v >= 0 ? '▲' : '▼';
+
+async function init() {
+    let positions = [];
+    try {
+        positions = await fetch('/api/data/positions.json').then(r => r.json());
+    } catch { return; }
+
+    let priceMap = {};
+    try {
+        const data = await fetch('/api/all-prices?force=1').then(r => r.json());
+        priceMap = data.positions || {};
+    } catch { /* sem ligação — mantém o último currentPrice guardado em positions.json */ }
+
+    positions = positions.map(p => {
+        if (priceMap[p.isin] != null) p.currentPrice = priceMap[p.isin];
+        return computePosition(p);
+    });
+
+    renderSummary(positions);
+    renderCategories(positions);
+    renderPositions(positions);
+}
+
+function computePosition(p) {
+    if (p.type === 'juros') {
+        const days = p.startDate
+            ? (new Date() - new Date(p.startDate)) / (1000 * 60 * 60 * 24)
+            : 0;
+        const tax      = (p.taxRate ?? 28) / 100;
+        const grossPnl = p.investedAmount * (p.annualReturn / 100) * days / 365;
+        p.pnl    = grossPnl * (1 - tax);
+        p.total  = p.investedAmount + p.pnl;
+        p.pnlPct = (p.pnl / p.investedAmount) * 100;
+        p.cost   = p.investedAmount;
+    } else if (['realestate', 'bonds'].includes(p.type)) {
+        let months = p.investmentMonths || 0;
+        if (p.startDate) {
+            const ms = new Date() - new Date(p.startDate);
+            months = ms / (1000 * 60 * 60 * 24 * 30.44);
+        }
+        if (p.finalizado) {
+            p.total  = p.investedAmount * (1 + p.annualReturn / 100 * months / 12);
+            p.pnl    = p.total - p.investedAmount;
+            p.pnlPct = p.annualReturn * months / 12;
+        } else {
+            p.total  = p.investedAmount;
+            p.pnl    = 0;
+            p.pnlPct = 0;
+        }
+        p.cost = p.investedAmount;
+    } else {
+        p.total  = (p.currentPrice || 0) * p.units;
+        p.cost   = p.avgBuyPrice * p.units;
+        p.pnl    = p.total - p.cost;
+        p.pnlPct = p.cost > 0 ? (p.pnl / p.cost) * 100 : 0;
+    }
+    return p;
+}
+
+function renderSummary(positions) {
+    const total   = positions.reduce((s, p) => s + p.total, 0);
+    const cost    = positions.reduce((s, p) => s + p.cost,  0);
+    const pnl     = total - cost;
+    const pnlPct  = cost > 0 ? pnl / cost * 100 : 0;
+
+    document.getElementById('perf-total').textContent    = fmtEur(total);
+    document.getElementById('perf-cost').textContent     = fmtEur(cost);
+
+    const pnlEurEl = document.getElementById('perf-pnl-eur');
+    pnlEurEl.textContent  = `${arrow(pnl)} ${sign(pnl)}${fmt2(Math.abs(pnl))} €`;
+    pnlEurEl.className    = `perf-card-value ${cls(pnl)}`;
+
+    const pnlPctEl = document.getElementById('perf-pnl-pct');
+    pnlPctEl.textContent  = `${arrow(pnlPct)} ${sign(pnlPct)}${fmt2(Math.abs(pnlPct))} %`;
+    pnlPctEl.className    = `perf-card-value ${cls(pnlPct)}`;
+}
+
+function renderCategories(positions) {
+    const total = positions.reduce((s, p) => s + p.total, 0);
+
+    const byType = {};
+    for (const p of positions) {
+        if (!byType[p.type]) byType[p.type] = { total: 0, cost: 0, positions: [] };
+        byType[p.type].total += p.total;
+        byType[p.type].cost  += p.cost;
+        byType[p.type].positions.push(p);
+    }
+
+    const ALWAYS_SHOW = new Set(['bonds']);
+
+    const el = document.getElementById('perf-categories');
+    el.innerHTML = TYPE_ORDER.filter(t => byType[t] || ALWAYS_SHOW.has(t)).map(type => {
+        if (!byType[type]) byType[type] = { total: 0, cost: 0, positions: [] };
+        const g    = byType[type];
+        const info = TYPES[type];
+        const pnl  = g.total - g.cost;
+        const pct  = g.cost > 0 ? pnl / g.cost * 100 : 0;
+        const alloc = total > 0 ? g.total / total * 100 : 0;
+
+        return `
+        <div class="perf-cat-card">
+            <div class="perf-cat-header">
+                <span class="perf-cat-dot" style="background:${info.color}"></span>
+                <span class="perf-cat-name">${info.label}</span>
+                <span class="perf-cat-alloc dim">${fmt2(alloc)} %</span>
+            </div>
+            <div class="perf-cat-total">${fmtEur(g.total)}</div>
+            <div class="perf-cat-pnl ${cls(pnl)}">
+                ${arrow(pnl)} ${sign(pnl)}${fmt2(Math.abs(pnl))} € &nbsp;·&nbsp; ${sign(pct)}${fmt2(Math.abs(pct))} %
+            </div>
+            <div class="perf-cat-bar-bg">
+                <div class="perf-cat-bar-fill" style="width:${Math.min(alloc, 100)}%;background:${info.color}22;border-right:2px solid ${info.color}"></div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function renderPositions(positions) {
+    const total = positions.reduce((s, p) => s + p.total, 0);
+    const sorted = [...positions].sort((a, b) => b.total - a.total);
+
+    const el = document.getElementById('perf-positions-list');
+    el.innerHTML = sorted.map(p => {
+        const info  = TYPES[p.type] || { color: '#888', label: p.type };
+        const alloc = total > 0 ? p.total / total * 100 : 0;
+        const ticker6 = (p.ticker || '').slice(0, 6);
+        const pnlStr = ['realestate','bonds'].includes(p.type) && !p.finalizado
+            ? '—'
+            : `${arrow(p.pnl)} ${sign(p.pnl)}${fmt2(Math.abs(p.pnl))} €`;
+        const pctStr = ['realestate','bonds'].includes(p.type) && !p.finalizado
+            ? '—'
+            : `${sign(p.pnlPct)}${fmt2(Math.abs(p.pnlPct))} %`;
+
+        return `
+        <div class="perf-pos-row">
+            <div class="stock-icon" style="background:${p.bg};font-size:9px;width:38px;height:38px;border-radius:8px;flex-shrink:0">${ticker6}</div>
+            <div class="perf-pos-info">
+                <span class="perf-pos-name">${p.name}</span>
+                <span class="perf-pos-type" style="color:${info.color}">${info.label}</span>
+            </div>
+            <div class="perf-pos-alloc dim">${fmt2(alloc)} %</div>
+            <div class="perf-pos-total">${fmtEur(p.total)}</div>
+            <div class="perf-pos-pnl ${p.pnl !== 0 ? cls(p.pnl) : 'dim'}">
+                <span>${pnlStr}</span>
+                <span class="perf-pos-pct">${pctStr}</span>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+init();
+</script>
+
+</body>
+</html>

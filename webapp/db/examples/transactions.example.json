@@ -1,0 +1,39 @@
+{
+  "transactions": {
+    "buy": [
+      {
+        "isin": "IE00B4L5Y983",
+        "ticker": "IWDA",
+        "instrument": "iShares Core MSCI World",
+        "valorTotal": 800,
+        "volume": 10,
+        "valorCompra": 80,
+        "dataCompra": "2026-01-15",
+        "broker": "XTB"
+      },
+      {
+        "isin": "US0378331005",
+        "ticker": "AAPL",
+        "instrument": "Apple Inc.",
+        "valorTotal": 750,
+        "volume": 5,
+        "valorCompra": 150,
+        "dataCompra": "2026-02-10",
+        "broker": "XTB"
+      }
+    ],
+    "sell": [],
+    "dividends": [
+      {
+        "isin": "IE00B4L5Y983",
+        "ticker": "IWDA",
+        "instrument": "iShares Core MSCI World",
+        "dividendo": 5,
+        "dividendoBruto": 6,
+        "impostoRetido": 1,
+        "dataDividendo": "2026-03-01",
+        "broker": "XTB"
+      }
+    ]
+  }
+}

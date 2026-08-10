@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="an.page_title">Análise — StockTracker</title>
+    <link rel="icon" type="image/x-icon" href="images/icon.png">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav id="navbar"></nav>
+
+<main class="analysis-page">
+
+    <!-- ── Grid view ─────────────────────────────────────────────────── -->
+    <div id="an-grid-view">
+        <div class="analysis-header">
+            <h1 class="section-title" style="margin-bottom:8px" data-i18n="an.header_title">Modo Analista</h1>
+            <p class="analysis-subtitle" data-i18n="an.header_subtitle">Pesquisa informações financeiras acerca de uma ação</p>
+        </div>
+        <div id="an-stocks-grid" class="an-stocks-grid"></div>
+    </div>
+
+    <!-- ── Detail view (ficha) ──────────────────────────────────────────── -->
+    <div id="an-detail-view" class="an-detail hidden">
+
+        <div class="an-detail-header">
+            <button id="an-back-btn" class="an-back-btn" data-i18n-title="an.back_title" title="Voltar">←</button>
+            <div class="an-detail-title-wrap">
+                <input class="an-title-input" id="an-ticker-input" type="text" placeholder="TICKER" spellcheck="false" maxlength="12">
+                <input class="an-subtitle-input" id="an-name-input" type="text" data-i18n-placeholder="an.company_name_placeholder" placeholder="Nome da empresa" spellcheck="false">
+            </div>
+            <span id="an-save-status" class="an-save-status"></span>
+            <button id="an-refresh-btn" class="an-back-btn" data-i18n-title="an.refresh_title" title="Atualizar dados via yfinance">🔄</button>
+            <button id="an-interest-btn" class="an-back-btn" title="Marcar como &quot;Quero comprar&quot;">☆</button>
+            <button id="an-delete-btn" class="an-delete-btn" data-i18n-title="an.delete_title" title="Eliminar">✕</button>
+        </div>
+
+        <div id="an-fx-warning" class="an-fx-warning hidden"></div>
+
+        <div class="an-detail-grid">
+
+            <!-- Left column: inputs -->
+            <div class="an-detail-col">
+
+                <div class="an-section">
+                    <span class="an-section-title" data-i18n="an.section_current_data">Dados atuais</span>
+                    <div class="an-fields-grid">
+                        <label class="analysis-field">
+                            <span class="analysis-field-label" data-i18n="an.field_price">Preço da ação (€)</span>
+                            <input class="analysis-input" id="an-price" type="number" step="0.01" min="0" placeholder="0,00">
+                        </label>
+                        <label class="analysis-field">
+                            <span class="analysis-field-label" data-i18n="an.field_eps">EPS (ttm) — Lucro por ação (€)</span>
+                            <input class="analysis-input" id="an-eps" type="number" step="0.01" placeholder="0,00">
+                        </label>
+                        <label class="analysis-field">
+                            <span class="analysis-field-label" data-i18n="an.field_eps_next">EPS next Y — opcional, para Forward P/E (€)</span>
+                            <input class="analysis-input" id="an-eps-next-y" type="number" step="0.01" placeholder="0,00">
+                        </label>
+                        <label class="analysis-field">
+                            <span class="analysis-field-label" data-i18n="an.field_sales">Receita por ação (€)</span>
+                            <input class="analysis-input" id="an-sales" type="number" step="0.01" placeholder="0,00">
+                        </label>
+                        <label class="analysis-field">
+                            <span class="analysis-field-label" data-i18n="an.field_yield">Dividend Yield (%)</span>
+                            <input class="analysis-input" id="an-yield" type="number" step="0.1" min="0" placeholder="0,0">
+                        </label>
+                        <label class="analysis-field an-field-span2">
+                            <span class="analysis-field-label" data-i18n="an.field_manual_growth">Crescimento manual — opcional, 5 anos (%/ano)</span>
+                            <input class="analysis-input" id="an-manual-growth" type="number" step="0.1" data-i18n-placeholder="an.manual_growth_placeholder" placeholder="deixa vazio para usar o histórico">
+                        </label>
+                    </div>
+                </div>
+
+                <div class="an-section">
+                    <span class="an-section-title" data-i18n="an.section_quality">Qualidade</span>
+                    <div class="an-fields-grid">
+                        <label class="analysis-field">
+                            <span class="analysis-field-label" data-i18n="an.field_roe">ROE (%)</span>
+                            <input class="analysis-input" id="an-roe" type="number" step="0.1" placeholder="0,0">
+                        </label>
+                        <label class="analysis-field">
+                            <span class="analysis-field-label" data-i18n="an.field_profit_margin">Margem Líquida (%)</span>
+                            <input class="analysis-input" id="an-profit-margin" type="number" step="0.1" placeholder="0,0">
+                        </label>
+                        <label class="analysis-field">
+                            <span class="analysis-field-label" data-i18n="an.field_oper_margin">Margem Operacional (%)</span>
+                            <input class="analysis-input" id="an-oper-margin" type="number" step="0.1" placeholder="0,0">
+                        </label>
+                        <label class="analysis-field">
+                            <span class="analysis-field-label" data-i18n="an.field_gross_margin">Margem Bruta (%)</span>
+                            <input class="analysis-input" id="an-gross-margin" type="number" step="0.1" placeholder="0,0">
+                        </label>
+                    </div>
+                </div>
+
+                <div class="an-section">
+                    <span class="an-section-title" data-i18n="an.section_health_balance">Saúde Financeira — balanço</span>
+                    <div class="an-fields-grid">
+                        <label class="analysis-field">
+                            <span class="analysis-field-label" data-i18n="an.field_current_assets">Total Ativo Corrente (€)</span>
+                            <input class="analysis-input" id="an-current-assets" type="number" step="0.01" min="0" placeholder="0,00">
+                        </label>
+                        <label class="analysis-field">
+                            <span class="analysis-field-label" data-i18n="an.field_current_liabilities">Total Passivo Corrente (€)</span>
+                            <input class="analysis-input" id="an-current-liabilities" type="number" step="0.01" min="0" placeholder="0,00">
+                        </label>
+                        <label class="analysis-field">
+                            <span class="analysis-field-label" data-i18n="an.field_debt_equity">Dívida / Capital Próprio</span>
+                            <input class="analysis-input" id="an-debt-equity" type="number" step="0.01" min="0" placeholder="0,00">
+                        </label>
+                    </div>
+                </div>
+
+                <div class="an-section">
+                    <div class="an-section-header">
+                        <span class="an-section-title" data-i18n="an.section_history">Histórico (EPS, Receita/ação e FCF/ação por ano)</span>
+                        <button class="an-add-row-btn" id="an-add-history-row" data-i18n="an.add_year_btn">+ Ano</button>
+                    </div>
+                    <div class="an-history-head">
+                        <span data-i18n="an.col_year">Ano</span><span data-i18n="an.col_eps">EPS (€)</span><span data-i18n="an.col_sales_share">Receita/ação (€)</span><span data-i18n="an.col_fcf_share">FCF/ação (€)</span><span></span>
+                    </div>
+                    <div id="an-history-rows" class="an-history-rows"></div>
+                    <div id="an-growth-summary" class="an-growth-summary"></div>
+                </div>
+
+            </div>
+
+            <!-- Right column: ratios -->
+            <div class="an-detail-col">
+                <div class="an-section">
+                    <span class="an-section-title" data-i18n="an.section_health">Saúde Financeira</span>
+                    <div id="an-health" class="an-ratios-grid"></div>
+                </div>
+                <div class="an-section">
+                    <span class="an-section-title" data-i18n="an.section_ratios">Ratios</span>
+                    <div id="an-ratios" class="an-ratios-grid"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</main>
+
+<!-- Add stock modal: search via yfinance or create blank -->
+<div id="an-search-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+        <div class="modal-header">
+            <span class="modal-title" data-i18n="an.modal_add_stock">Adicionar ação</span>
+            <button class="modal-close" id="an-search-modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <label class="modal-label" style="display:block;margin-bottom:8px" data-i18n="an.search_label">Procurar por nome ou ticker</label>
+            <input class="alert-input-row" id="an-search-input" type="text" spellcheck="false"
+                   style="width:100%;box-sizing:border-box;background:#111;border:1px solid #333;border-radius:8px;color:#fff;font-size:14px;padding:9px 12px;outline:none"
+                   data-i18n-placeholder="an.search_placeholder" placeholder="Ex: Apple, AAPL...">
+            <div id="an-search-status" class="an-search-status"></div>
+            <div id="an-search-results" class="an-search-results"></div>
+            <div class="modal-actions" style="margin-top:16px;justify-content:space-between">
+                <button class="btn-secondary" id="an-search-manual-btn" data-i18n="an.create_blank_btn">Criar em branco</button>
+                <button class="btn-secondary" id="an-search-cancel" data-i18n="pf.cancel">Cancelar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="i18n.js"></script>
+<script src="navbar.js"></script>
+<script>
+mountNavbar('analysis');
+applyStaticTranslations();
+
+// ── Verdict thresholds ───────────────────────────────────────────────────
+// Heurísticas de referência (regra de bolso), não verdade universal — P/E e
+// P/S variam muito por setor. Fáceis de ajustar aqui se não fizerem sentido.
+const THRESHOLDS = {
+    pe:   { low: 15, high: 25 },
+    peg:  { low: 1,  high: 2  },
+    pegy: { low: 1,  high: 2  },
+    ps:   { low: 1,  high: 4  },
+};
+
+const RATIO_META = [
+    { key: 'pe',         label: 'P/E',        full: 'Price to Earnings',                  fmt: fmtMultiple, compute: calcPE,        miniBadge: true  },
+    { key: 'peForward',  label: 'Fwd P/E',    full: 'Forward Price to Earnings',           fmt: fmtMultiple, compute: calcForwardPE, miniBadge: false, thresholdKey: 'pe'  },
+    { key: 'peg',        label: 'PEG',        full: 'Price/Earnings to Growth',            fmt: fmtPlain,     compute: calcPEG,       miniBadge: true  },
+    { key: 'pegForward', label: 'PEG (Fwd)',  full: 'Price/Earnings to Growth',            fmt: fmtPlain,     compute: calcPEGForward, miniBadge: false, thresholdKey: 'peg' },
+    { key: 'pegy',       label: 'PEGY',       full: 'Price/Earnings to Growth and Yield',  fmt: fmtPlain,     compute: calcPEGY,      miniBadge: true  },
+    { key: 'ps',         label: 'P/S',        full: 'Price to Sales',                      fmt: fmtMultiple,  compute: calcPS,        miniBadge: true  },
+];
+
+// ── Saúde Financeira — checks tipo "Mark Tilbury" / "Investor52" ───────────
+// Regras: Current Ratio > 1, Margem Operacional > 15%, Dívida/Capital Próprio < 1
+// (idealmente < 0.5), Crescimento de Receita ≥ 9%/ano (≈50% em 5 anos), Free
+// Cash Flow positivo e em crescimento consistente ano-a-ano.
+const HEALTH_META = [
+    { key: 'currentRatio',  label: 'Current Ratio',            full: t('an.health_current_ratio_full'),   fmt: fmtMultiple, compute: calcCurrentRatio,   verdict: s => tierVerdict(calcCurrentRatio(s), 1, 'gte'), scale: () => '> 1' },
+    { key: 'operMarginChk', label: t('an.health_oper_margin_label'),   full: t('an.health_oper_margin_full'),          fmt: fmtPctPlain, compute: s => s.operMargin,  verdict: s => tierVerdict(s.operMargin, 15, 'gte'), scale: () => '> 15%' },
+    { key: 'debtEquity',    label: t('an.health_debt_equity_label'),  full: 'Debt-to-Equity Ratio < 1',      fmt: fmtPlain,    compute: s => s.debtToEquity, verdict: s => debtEquityVerdict(s.debtToEquity), scale: () => '< 0.5' },
+    { key: 'revenueGrowth', label: t('an.health_revenue_growth_label'), full: t('an.health_revenue_growth_full'), fmt: fmtPct,   compute: s => calcCAGR(s.history, 'salesPerShare'), verdict: s => tierVerdict(calcCAGR(s.history, 'salesPerShare'), 9, 'gte'), scale: () => '> 9%/ano' },
+    { key: 'fcfPositive',   label: 'Free Cash Flow',           full: t('an.health_fcf_positive_full'),        fmt: fmtEurPerShare, compute: s => latestCashFlow(s.history), verdict: s => cashFlowPositiveVerdict(s.history), scale: () => '> 0 €' },
+    { key: 'fcfTrend',      label: t('an.health_fcf_trend_label'), full: t('an.health_fcf_trend_full'), fmt: () => '', compute: () => null, verdict: s => cashFlowTrendVerdict(s.history) },
+];
+
+// ── State ──────────────────────────────────────────────────────────────────
+let stocks     = [];
+let activeId   = null;
+let saveTimer  = null;
+
+// ── Data I/O ───────────────────────────────────────────────────────────────
+async function loadStocks() {
+    stocks = await fetch('/api/data/analysis.json?_=' + Date.now()).then(r => r.json()).catch(() => []);
+}
+
+async function persist() {
+    await fetch('/api/data/analysis.json', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(stocks, null, 2),
+    });
+}
+
+function scheduleSave() {
+    clearTimeout(saveTimer);
+    const st = document.getElementById('an-save-status');
+    if (st) { st.textContent = ''; st.className = 'an-save-status'; }
+    saveTimer = setTimeout(async () => {
+        try {
+            await persist();
+            if (st) {
+                st.textContent = t('an.saved_status');
+                st.className   = 'an-save-status saved';
+                setTimeout(() => { if (st) st.textContent = ''; }, 2000);
+            }
+        } catch {
+            if (st) { st.textContent = t('an.save_error_status'); st.className = 'an-save-status error'; }
+        }
+    }, 600);
+}
+
+// ── Calculations ─────────────────────────────────────────────────────────
+function calcCAGR(history, field) {
+    const rows = (history || [])
+        .filter(r => r.year && r[field] > 0)
+        .sort((a, b) => a.year - b.year);
+    if (rows.length < 2) return NaN;
+    const first = rows[0], last = rows[rows.length - 1];
+    const years = last.year - first.year;
+    if (years <= 0) return NaN;
+    return (Math.pow(last[field] / first[field], 1 / years) - 1) * 100;
+}
+
+function growthUsed(stock) {
+    const manual = parseFloat(stock.manualGrowth);
+    if (Number.isFinite(manual) && manual > 0) return { value: manual, source: 'manual' };
+    const cagr = calcCAGR(stock.history, 'eps');
+    return Number.isFinite(cagr) && cagr > 0 ? { value: cagr, source: 'historico' } : { value: NaN, source: null };
+}
+
+function calcPE(stock) {
+    const price = stock.price, eps = stock.eps;
+    return Number.isFinite(price) && price >= 0 && Number.isFinite(eps) && eps > 0 ? price / eps : NaN;
+}
+
+function calcPEG(stock) {
+    const pe = calcPE(stock), g = growthUsed(stock).value;
+    return Number.isFinite(pe) && g > 0 ? pe / g : NaN;
+}
+
+function calcForwardPE(stock) {
+    const price = stock.price, epsNextY = stock.epsNextY;
+    return Number.isFinite(price) && price >= 0 && Number.isFinite(epsNextY) && epsNextY > 0 ? price / epsNextY : NaN;
+}
+
+function calcPEGForward(stock) {
+    const fpe = calcForwardPE(stock), g = growthUsed(stock).value;
+    return Number.isFinite(fpe) && g > 0 ? fpe / g : NaN;
+}
+
+function calcPEGY(stock) {
+    const pe = calcPE(stock), g = growthUsed(stock).value;
+    const denom = (Number.isFinite(g) ? g : 0) + (stock.dividendYield || 0);
+    return Number.isFinite(pe) && denom > 0 ? pe / denom : NaN;
+}
+
+function calcPS(stock) {
+    const price = stock.price, sales = stock.salesPerShare;
+    return Number.isFinite(price) && price >= 0 && Number.isFinite(sales) && sales > 0 ? price / sales : NaN;
+}
+
+function verdictFor(m, value) {
+    const th = THRESHOLDS[m.thresholdKey || m.key];
+    if (!th || !Number.isFinite(value)) return null;
+    if (value < th.low)  return { label: t('an.verdict_undervalued'), cls: 'good'    };
+    if (value > th.high) return { label: t('an.verdict_overvalued'),  cls: 'bad'     };
+    return { label: t('an.verdict_fair'), cls: 'neutral' };
+}
+
+// ── Saúde Financeira — cálculos e verdicts ──────────────────────────────────
+function calcCurrentRatio(stock) {
+    const a = stock.currentAssets, l = stock.currentLiabilities;
+    return Number.isFinite(a) && Number.isFinite(l) && l > 0 ? a / l : NaN;
+}
+
+function cashFlowRows(history) {
+    return (history || [])
+        .filter(r => r.year && Number.isFinite(r.freeCashFlowPerShare))
+        .sort((a, b) => a.year - b.year);
+}
+
+function latestCashFlow(history) {
+    const rows = cashFlowRows(history);
+    return rows.length ? rows[rows.length - 1].freeCashFlowPerShare : NaN;
+}
+
+// Verdict genérico: "gte" = quanto maior melhor (threshold é um mínimo), "lte" = quanto menor melhor (threshold é um máximo).
+// Amarelo = dentro de `tolerance` (10%) do limiar, sem o cumprir.
+function tierVerdict(value, threshold, direction, tolerance = 0.10) {
+    if (!Number.isFinite(value)) return null;
+    if (direction === 'gte') {
+        if (value >= threshold) return 'good';
+        if (value >= threshold * (1 - tolerance)) return 'warn';
+        return 'bad';
+    }
+    if (value <= threshold) return 'good';
+    if (value <= threshold * (1 + tolerance)) return 'warn';
+    return 'bad';
+}
+
+// Dívida/Capital Próprio: usa os dois níveis dados (< 0.5 ideal, < 1 aceitável) em vez de uma tolerância genérica.
+function debtEquityVerdict(value) {
+    if (!Number.isFinite(value)) return null;
+    if (value < 0.5) return 'good';
+    if (value <= 1)  return 'warn';
+    return 'bad';
+}
+
+function cashFlowPositiveVerdict(history) {
+    const v = latestCashFlow(history);
+    if (!Number.isFinite(v)) return null;
+    return v > 0 ? 'good' : 'bad';
+}
+
+// Últimos N anos (4 por omissão) do histórico, cada um com um veredito próprio:
+// o 1º ano é verde se o FCF desse ano for positivo; os seguintes são verdes se
+// o FCF for maior que o do ano anterior, vermelhos caso contrário. Anos sem
+// dados de FCF (ou sem ano anterior para comparar) ficam neutros (cinza).
+function fcfYearPills(history, years = 4) {
+    const rows = (history || [])
+        .filter(r => r.year)
+        .sort((a, b) => a.year - b.year)
+        .slice(-years);
+
+    return rows.map((r, i) => {
+        const v = r.freeCashFlowPerShare;
+        let cls = 'neutral';
+        if (Number.isFinite(v)) {
+            if (i === 0) {
+                cls = v > 0 ? 'good' : 'bad';
+            } else {
+                const prev = rows[i - 1].freeCashFlowPerShare;
+                cls = Number.isFinite(prev) ? (v > prev ? 'good' : 'bad') : 'neutral';
+            }
+        }
+        return { year: r.year, value: v, cls };
+    });
+}
+
+function cashFlowTrendVerdict(history) {
+    const pills = fcfYearPills(history).filter(p => p.cls !== 'neutral');
+    if (pills.length < 2) return null;
+    const good = pills.filter(p => p.cls === 'good').length;
+    if (good === pills.length) return 'good';
+    if (good >= pills.length - 1) return 'warn';
+    return 'bad';
+}
+
+function fmtMultiple(v) { return Number.isFinite(v) ? v.toFixed(2) + 'x' : '—'; }
+function fmtPctPlain(v) { return Number.isFinite(v) ? v.toFixed(1) + '%' : '—'; }
+function fmtEurPerShare(v) { return Number.isFinite(v) ? v.toFixed(2).replace('.', ',') + ' €/ação' : '—'; }
+function fmtPlain(v)    { return Number.isFinite(v) ? v.toFixed(2)      : '—'; }
+function fmtPct(v)      { return Number.isFinite(v) ? (v >= 0 ? '+' : '') + v.toFixed(1) + '%/ano' : '—'; }
+
+// ── Grid view ────────────────────────────────────────────────────────────
+function renderGrid() {
+    const grid = document.getElementById('an-stocks-grid');
+
+    // Ações marcadas com estrela ("Quero comprar") aparecem primeiro; dentro de
+    // cada grupo mantém-se a ordem original (sort é estável).
+    const ordered = [...stocks].sort((a, b) => (b.interested ? 1 : 0) - (a.interested ? 1 : 0));
+
+    const cards = ordered.map(stock => {
+        const badges = RATIO_META.filter(m => m.miniBadge).map(m => {
+            const v = m.compute(stock);
+            const verdict = verdictFor(m, v);
+            const cls = verdict ? verdict.cls : 'neutral';
+            return `<span class="an-mini-badge ${cls}">${m.label} ${m.fmt(v)}</span>`;
+        }).join('');
+
+        const score = healthScore(stock);
+        const scoreCls = score.total === 0 ? 'neutral'
+            : score.good === score.total ? 'good'
+            : score.good >= score.total - 1 ? 'warn'
+            : 'bad';
+        const scoreBadge = score.total
+            ? `<span class="an-mini-badge ${scoreCls}" title="${t('an.section_health')}">${score.good}/${score.total} ✓</span>`
+            : '';
+
+        return `
+        <div class="an-stock-card" data-id="${stock.id}">
+            ${stock.interested ? `<span class="an-stock-card-star" title="${t('an.interested_badge_title')}">★</span>` : ''}
+            <div class="an-stock-card-ticker">${stock.ticker || t('an.no_ticker_label')}</div>
+            <div class="an-stock-card-name dim">${stock.name || ''}</div>
+            <div class="an-stock-card-badges">${scoreBadge}${badges}</div>
+        </div>`;
+    }).join('');
+
+    const newCard = `
+    <div class="an-stock-card an-stock-card-new" id="an-new-stock-btn">
+        <span class="an-stock-card-new-icon">+</span>
+        <span class="an-stock-card-new-label">${t('an.new_stock_label')}</span>
+    </div>`;
+
+    grid.innerHTML = cards + newCard;
+
+    grid.querySelectorAll('.an-stock-card[data-id]').forEach(card => {
+        card.addEventListener('click', () => openDetail(card.dataset.id));
+    });
+    document.getElementById('an-new-stock-btn').addEventListener('click', openSearchModal);
+}
+
+// ── Detail view ──────────────────────────────────────────────────────────
+function getActiveStock() {
+    return stocks.find(s => s.id === activeId) || null;
+}
+
+function blankStock() {
+    return {
+        id:              'stock-' + Date.now(),
+        ticker:          '',
+        name:            '',
+        price:           null,
+        eps:             null,
+        epsNextY:        null,
+        salesPerShare:   null,
+        dividendYield:   null,
+        manualGrowth:    null,
+        roe:             null,
+        profitMargin:    null,
+        operMargin:      null,
+        grossMargin:     null,
+        currentAssets:      null,
+        currentLiabilities: null,
+        debtToEquity:       null,
+        interested:      false,
+        history:         [],
+        sourceCurrency:  null,
+        fxRate:          null,
+        fxWarning:       null,
+        createdAt:       new Date().toISOString(),
+    };
+}
+
+function createStock() {
+    const stock = blankStock();
+    stocks.push(stock);
+    persist().catch(console.error);
+    openDetail(stock.id);
+}
+
+function openDetail(id) {
+    activeId = id;
+    renderView();
+    document.getElementById('an-ticker-input')?.focus();
+}
+
+function closeDetail() {
+    activeId = null;
+    renderView();
+}
+
+function renderView() {
+    const gridView   = document.getElementById('an-grid-view');
+    const detailView = document.getElementById('an-detail-view');
+    if (activeId === null) {
+        gridView.classList.remove('hidden');
+        detailView.classList.add('hidden');
+        renderGrid();
+    } else {
+        gridView.classList.add('hidden');
+        detailView.classList.remove('hidden');
+        renderDetail();
+    }
+}
+
+function renderDetail() {
+    const stock = getActiveStock();
+    if (!stock) { closeDetail(); return; }
+
+    document.getElementById('an-ticker-input').value    = stock.ticker || '';
+    document.getElementById('an-name-input').value      = stock.name || '';
+    document.getElementById('an-price').value           = stock.price          ?? '';
+    document.getElementById('an-eps').value              = stock.eps            ?? '';
+    document.getElementById('an-eps-next-y').value      = stock.epsNextY       ?? '';
+    document.getElementById('an-sales').value            = stock.salesPerShare  ?? '';
+    document.getElementById('an-yield').value            = stock.dividendYield  ?? '';
+    document.getElementById('an-manual-growth').value   = stock.manualGrowth   ?? '';
+    document.getElementById('an-roe').value              = stock.roe            ?? '';
+    document.getElementById('an-profit-margin').value   = stock.profitMargin   ?? '';
+    document.getElementById('an-oper-margin').value     = stock.operMargin     ?? '';
+    document.getElementById('an-gross-margin').value    = stock.grossMargin    ?? '';
+    document.getElementById('an-current-assets').value      = stock.currentAssets      ?? '';
+    document.getElementById('an-current-liabilities').value = stock.currentLiabilities ?? '';
+    document.getElementById('an-debt-equity').value         = stock.debtToEquity       ?? '';
+    renderInterestBtn(stock);
+
+    renderFxWarning(stock);
+    renderHistoryRows(stock);
+    renderGrowthSummary(stock);
+    renderRatios(stock);
+    renderHealth(stock);
+}
+
+function renderFxWarning(stock) {
+    const el = document.getElementById('an-fx-warning');
+    if (stock.fxWarning) {
+        el.textContent = '⚠ ' + stock.fxWarning;
+        el.classList.remove('hidden');
+    } else {
+        el.classList.add('hidden');
+    }
+}
+
+function renderHistoryRows(stock) {
+    const container = document.getElementById('an-history-rows');
+    container.innerHTML = stock.history.map((row, i) => `
+        <div class="an-history-row" data-idx="${i}">
+            <input class="analysis-input" type="number" placeholder="${t('an.col_year')}" value="${row.year ?? ''}" data-idx="${i}" data-field="year">
+            <input class="analysis-input" type="number" step="0.01" placeholder="0,00" value="${row.eps ?? ''}" data-idx="${i}" data-field="eps">
+            <input class="analysis-input" type="number" step="0.01" placeholder="0,00" value="${row.salesPerShare ?? ''}" data-idx="${i}" data-field="salesPerShare">
+            <input class="analysis-input" type="number" step="0.01" placeholder="0,00" value="${row.freeCashFlowPerShare ?? ''}" data-idx="${i}" data-field="freeCashFlowPerShare">
+            <button class="an-history-del" data-idx="${i}" title="${t('an.remove_row_title')}">✕</button>
+        </div>
+    `).join('') || `<p class="dim an-history-empty">${t('an.no_history_data')}</p>`;
+
+    container.querySelectorAll('input').forEach(inp => {
+        inp.addEventListener('input', () => {
+            const s     = getActiveStock();
+            const idx   = parseInt(inp.dataset.idx, 10);
+            const field = inp.dataset.field;
+            s.history[idx][field] = field === 'year' ? (parseInt(inp.value, 10) || null) : parseFloat(inp.value);
+            renderGrowthSummary(s);
+            renderRatios(s);
+            renderHealth(s);
+            scheduleSave();
+        });
+    });
+    container.querySelectorAll('.an-history-del').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const s = getActiveStock();
+            s.history.splice(parseInt(btn.dataset.idx, 10), 1);
+            renderHistoryRows(s);
+            renderGrowthSummary(s);
+            renderRatios(s);
+            renderHealth(s);
+            scheduleSave();
+        });
+    });
+}
+
+function renderGrowthSummary(stock) {
+    const el        = document.getElementById('an-growth-summary');
+    const epsCagr   = calcCAGR(stock.history, 'eps');
+    const salesCagr = calcCAGR(stock.history, 'salesPerShare');
+    const used      = growthUsed(stock);
+    const usedLabel = Number.isFinite(used.value)
+        ? fmtPct(used.value) + (used.source === 'manual' ? t('an.source_manual') : t('an.source_historical'))
+        : '—';
+
+    el.innerHTML = `
+        <div class="an-growth-row"><span class="dim">${t('an.growth_eps_label')}</span><span>${fmtPct(epsCagr)}</span></div>
+        <div class="an-growth-row"><span class="dim">${t('an.growth_sales_label')}</span><span>${fmtPct(salesCagr)}</span></div>
+        <div class="an-growth-row"><span class="dim">${t('an.growth_used_label')}</span><span>${usedLabel}</span></div>
+    `;
+}
+
+function financialCardHTML(label, full, valueStr, cls, badgeLabel) {
+    return `
+    <div class="analysis-card">
+        <span class="analysis-card-name">${label} <span class="analysis-card-full">(${full})</span></span>
+        <div class="an-ratio-result">
+            ${valueStr ? `<span class="analysis-card-result-value">${valueStr}</span>` : ''}
+            ${cls ? `<span class="an-verdict-badge ${cls}">${badgeLabel}</span>` : '<span class="an-verdict-badge neutral">—</span>'}
+        </div>
+    </div>`;
+}
+
+function fcfTrendCardHTML(m, stock) {
+    const pills = fcfYearPills(stock.history);
+    const pillsHTML = pills.length
+        ? pills.map(p => {
+            const valStr = Number.isFinite(p.value) ? fmtEurPerShare(p.value) : t('an.no_fcf_data');
+            return `<span class="an-fcf-pill ${p.cls}" title="${p.year}: ${valStr}">${p.year}</span>`;
+        }).join('')
+        : `<span class="dim" style="font-size:12px">${t('an.no_fcf_history')}</span>`;
+
+    const moreHTML = stock.ticker
+        ? `<a class="an-fcf-pill an-fcf-pill-more" href="https://finance.yahoo.com/quote/${encodeURIComponent(stock.ticker)}/cash-flow"
+             target="_blank" rel="noopener noreferrer" title="${t('an.view_previous_years_title')}">…</a>`
+        : '';
+
+    return `
+    <div class="analysis-card">
+        <span class="analysis-card-name">${m.label} <span class="analysis-card-full">(${m.full})</span></span>
+        <div class="an-fcf-pills">${moreHTML}${pillsHTML}</div>
+    </div>`;
+}
+
+function renderRatios(stock) {
+    const el = document.getElementById('an-ratios');
+    el.innerHTML = RATIO_META.map(m => {
+        const v       = m.compute(stock);
+        const verdict = verdictFor(m, v);
+        return financialCardHTML(m.label, m.full, m.fmt(v), verdict?.cls, verdict?.label);
+    }).join('');
+}
+
+function renderHealth(stock) {
+    const el = document.getElementById('an-health');
+    el.innerHTML = HEALTH_META.map(m => {
+        if (m.key === 'fcfTrend') return fcfTrendCardHTML(m, stock);
+        const v   = m.compute(stock);
+        const cls = m.verdict(stock); // 'good' | 'warn' | 'bad' | null
+        return financialCardHTML(m.label, m.full, m.fmt(v), cls, cls ? m.scale(stock) : null);
+    }).join('');
+}
+
+function healthScore(stock) {
+    const results = HEALTH_META.map(m => m.verdict(stock)).filter(Boolean);
+    const good    = results.filter(c => c === 'good').length;
+    return { good, total: results.length };
+}
+
+// ── Header field bindings ──────────────────────────────────────────────────
+function bindField(id, field, isFloat) {
+    document.getElementById(id).addEventListener('input', e => {
+        const stock = getActiveStock();
+        if (!stock) return;
+        stock[field] = e.target.value === '' ? null : (isFloat ? parseFloat(e.target.value) : e.target.value);
+        renderGrowthSummary(stock);
+        renderRatios(stock);
+        renderHealth(stock);
+        scheduleSave();
+    });
+}
+bindField('an-ticker-input',    'ticker',        false);
+bindField('an-name-input',      'name',          false);
+bindField('an-price',           'price',         true);
+bindField('an-eps',             'eps',           true);
+bindField('an-eps-next-y',      'epsNextY',      true);
+bindField('an-sales',           'salesPerShare', true);
+bindField('an-yield',           'dividendYield', true);
+bindField('an-manual-growth',   'manualGrowth',  true);
+bindField('an-roe',             'roe',           true);
+bindField('an-profit-margin',   'profitMargin',  true);
+bindField('an-oper-margin',     'operMargin',    true);
+bindField('an-gross-margin',    'grossMargin',   true);
+bindField('an-current-assets',      'currentAssets',      true);
+bindField('an-current-liabilities', 'currentLiabilities', true);
+bindField('an-debt-equity',         'debtToEquity',       true);
+
+document.getElementById('an-back-btn').addEventListener('click', closeDetail);
+
+document.getElementById('an-delete-btn').addEventListener('click', async () => {
+    if (!confirm(t('an.confirm_delete'))) return;
+    stocks = stocks.filter(s => s.id !== activeId);
+    await persist().catch(console.error);
+    closeDetail();
+});
+
+document.getElementById('an-add-history-row').addEventListener('click', () => {
+    const stock    = getActiveStock();
+    const lastYear = stock.history.length ? Math.max(...stock.history.map(r => r.year || 0)) : new Date().getFullYear() - 1;
+    stock.history.push({ year: lastYear + 1, eps: null, salesPerShare: null, freeCashFlowPerShare: null });
+    renderHistoryRows(stock);
+    scheduleSave();
+});
+
+// ── yfinance: pesquisa + fundamentais ───────────────────────────────────────
+async function fetchFundamentals(ticker) {
+    const resp = await fetch('/api/analysis-fundamentals?ticker=' + encodeURIComponent(ticker));
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || t('an.err_fetch_data'));
+    return data;
+}
+
+function mergeHistory(existing, fetchedRows) {
+    const byYear = new Map((existing || []).map(r => [r.year, r]));
+    (fetchedRows || []).forEach(r => {
+        if (r.year != null) byYear.set(r.year, { year: r.year, eps: r.eps, salesPerShare: r.salesPerShare, freeCashFlowPerShare: r.freeCashFlowPerShare });
+    });
+    return Array.from(byYear.values()).sort((a, b) => a.year - b.year);
+}
+
+function applyFundamentals(stock, data) {
+    stock.ticker = data.ticker || stock.ticker;
+    stock.name   = data.name   || stock.name;
+    ['price', 'eps', 'epsNextY', 'salesPerShare', 'dividendYield', 'roe', 'profitMargin', 'operMargin', 'grossMargin',
+     'currentAssets', 'currentLiabilities', 'debtToEquity']
+        .forEach(f => { if (data[f] != null) stock[f] = data[f]; });
+    stock.history         = mergeHistory(stock.history, data.history);
+    stock.sourceCurrency  = data.sourceCurrency || null;
+    stock.fxRate          = data.fxRate ?? null;
+    stock.fxWarning       = data.fxWarning || null;
+    stock.lastFetchedAt   = new Date().toISOString();
+}
+
+// ── Search modal ─────────────────────────────────────────────────────────────
+let searchDebounce = null;
+
+function openSearchModal() {
+    document.getElementById('an-search-input').value    = '';
+    document.getElementById('an-search-results').innerHTML = '';
+    document.getElementById('an-search-status').textContent = '';
+    document.getElementById('an-search-modal').classList.remove('hidden');
+    document.getElementById('an-search-input').focus();
+}
+
+function closeSearchModal() {
+    document.getElementById('an-search-modal').classList.add('hidden');
+}
+
+function renderSearchResults(results) {
+    const el = document.getElementById('an-search-results');
+    el.innerHTML = results.map(r => `
+        <div class="an-search-result-row" data-symbol="${r.symbol}">
+            <span class="an-search-result-symbol">${r.symbol}</span>
+            <span class="an-search-result-name dim">${r.name}</span>
+            <span class="an-search-result-exchange dim">${r.exchange}</span>
+        </div>
+    `).join('');
+    el.querySelectorAll('.an-search-result-row').forEach(row => {
+        row.addEventListener('click', () => pickSearchResult(row.dataset.symbol));
+    });
+}
+
+async function pickSearchResult(symbol) {
+    const status = document.getElementById('an-search-status');
+    status.textContent = t('an.loading_ticker_data', { symbol });
+    document.getElementById('an-search-results').innerHTML = '';
+    try {
+        const data  = await fetchFundamentals(symbol);
+        const stock = blankStock();
+        applyFundamentals(stock, data);
+        stocks.push(stock);
+        persist().catch(console.error);
+        closeSearchModal();
+        openDetail(stock.id);
+    } catch (err) {
+        status.textContent = t('an.err_create_blank', { msg: err.message });
+    }
+}
+
+document.getElementById('an-search-input').addEventListener('input', e => {
+    clearTimeout(searchDebounce);
+    const q       = e.target.value.trim();
+    const status  = document.getElementById('an-search-status');
+    const results = document.getElementById('an-search-results');
+    if (!q) { results.innerHTML = ''; status.textContent = ''; return; }
+    status.textContent = t('an.searching');
+    searchDebounce = setTimeout(async () => {
+        try {
+            const resp = await fetch('/api/analysis-search?q=' + encodeURIComponent(q));
+            const data = await resp.json();
+            renderSearchResults(data.results || []);
+            status.textContent = (data.results || []).length ? '' : t('pf.no_results');
+        } catch {
+            status.textContent = t('an.search_error');
+        }
+    }, 350);
+});
+
+document.getElementById('an-search-modal-close').addEventListener('click', closeSearchModal);
+document.getElementById('an-search-cancel').addEventListener('click', closeSearchModal);
+document.getElementById('an-search-modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeSearchModal();
+});
+document.getElementById('an-search-manual-btn').addEventListener('click', () => {
+    closeSearchModal();
+    createStock();
+});
+
+// ── Marcar como "Quero comprar" ──────────────────────────────────────────────
+function renderInterestBtn(stock) {
+    const btn = document.getElementById('an-interest-btn');
+    btn.textContent = stock.interested ? '★' : '☆';
+    btn.classList.toggle('active', !!stock.interested);
+    btn.title = stock.interested ? t('an.interest_unmark') : t('an.interest_mark');
+}
+
+document.getElementById('an-interest-btn').addEventListener('click', () => {
+    const stock = getActiveStock();
+    if (!stock) return;
+    stock.interested = !stock.interested;
+    renderInterestBtn(stock);
+    scheduleSave();
+});
+
+// ── Refresh button (ficha) ──────────────────────────────────────────────────
+document.getElementById('an-refresh-btn').addEventListener('click', async () => {
+    const stock = getActiveStock();
+    if (!stock) return;
+    if (!stock.ticker) { alert(t('an.err_fill_ticker_first')); return; }
+    const btn = document.getElementById('an-refresh-btn');
+    btn.disabled = true;
+    btn.textContent = '…';
+    try {
+        const data = await fetchFundamentals(stock.ticker);
+        applyFundamentals(stock, data);
+        renderDetail();
+        scheduleSave();
+    } catch (err) {
+        alert(t('an.err_refresh_prefix') + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '🔄';
+    }
+});
+
+// ── Init ───────────────────────────────────────────────────────────────────
+(async () => {
+    await loadStocks();
+    renderView();
+})();
+</script>
+
+</body>
+</html>

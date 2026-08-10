@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="wl.page_title">Watchlist — StockTracker</title>
+    <link rel="icon" type="image/x-icon" href="images/icon.png">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav id="navbar"></nav>
+
+<main class="container">
+    <div class="watchlist-header">
+        <div class="wl-header-left">
+            <button id="wl-back-btn" class="wl-back-btn hidden">←</button>
+            <h1 class="section-title" id="wl-header-title" data-i18n="wl.header_title">Listas em Observação</h1>
+        </div>
+        <span id="wl-status" class="wl-status dim"></span>
+    </div>
+
+    <div id="wl-content"></div>
+</main>
+
+<!-- Alert modal -->
+<div id="alert-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+        <div class="modal-header">
+            <span class="modal-title" data-i18n="wl.alert_modal_title">Alerta de preço</span>
+            <button class="modal-close" id="alert-modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <p id="alert-asset-name" class="alert-asset-name"></p>
+            <p class="alert-current-price"><span data-i18n="wl.alert_current_price_label">Preço atual:</span> <strong id="alert-current-val">—</strong></p>
+            <label class="modal-label" data-i18n="wl.alert_when_label">Alertar quando o preço atingir:</label>
+            <div class="alert-input-row">
+                <select id="alert-dir">
+                    <option value="above" data-i18n="wl.alert_dir_above">≥ (acima ou igual)</option>
+                    <option value="below" data-i18n="wl.alert_dir_below">≤ (abaixo ou igual)</option>
+                </select>
+                <input type="number" id="alert-price-input" step="0.01" placeholder="0,00">
+                <span class="alert-currency" id="alert-currency">EUR</span>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" id="alert-cancel" data-i18n="pf.cancel">Cancelar</button>
+                <button class="btn-primary" id="alert-save" data-i18n="wl.save_alert_btn">Guardar alerta</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New list modal -->
+<div id="new-list-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+        <div class="modal-header">
+            <span class="modal-title" data-i18n="wl.new_list_modal_title">Nova lista</span>
+            <button class="modal-close" id="new-list-modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <label class="modal-label" style="display:block;margin-bottom:8px" data-i18n="wl.list_name_label">Nome da lista</label>
+            <input class="alert-input-row" id="new-list-name-input" type="text"
+                   style="width:100%;box-sizing:border-box;background:#111;border:1px solid #333;border-radius:8px;color:#fff;font-size:14px;padding:9px 12px;outline:none"
+                   data-i18n-placeholder="wl.list_name_placeholder" placeholder="Ex: Dividendos">
+            <div class="modal-actions" style="margin-top:16px">
+                <button class="btn-secondary" id="new-list-cancel" data-i18n="pf.cancel">Cancelar</button>
+                <button class="btn-primary" id="new-list-confirm" data-i18n="wl.create_btn">Criar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="i18n.js"></script>
+<script src="navbar.js"></script>
+<script src="app.js"></script>
+<script>
+    mountNavbar('watchlist');
+    applyStaticTranslations();
+    initWatchlist();
+
+    document.getElementById('wl-back-btn').addEventListener('click', () => {
+        activeListId = null;
+        renderView();
+    });
+</script>
+
+</body>
+</html>

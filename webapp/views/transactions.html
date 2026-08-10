@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="tx.page_title">Transações — StockTracker</title>
+    <link rel="icon" type="image/x-icon" href="images/icon.png">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav id="navbar"></nav>
+
+<main class="tx-page">
+    <div class="tx-header-row">
+        <h1 class="tx-title" data-i18n="tx.title">Transações</h1>
+        <button class="btn-add" id="open-add-tx" data-i18n="tx.new_tx_btn">+ Nova Transação</button>
+    </div>
+
+    <div class="tx-stats-bar">
+        <div class="tx-stat">
+            <div class="tx-stat-label" data-i18n="tx.stat_invested">Total Investido</div>
+            <div class="tx-stat-value" id="stat-invested">—</div>
+            <div class="tx-stat-sub" id="stat-tx-count">—</div>
+        </div>
+        <div class="tx-stat">
+            <div class="tx-stat-label" data-i18n="tx.stat_dividends">Dividendos Recebidos</div>
+            <div class="tx-stat-value up" id="stat-dividends">—</div>
+            <div class="tx-stat-sub" id="stat-div-count">—</div>
+        </div>
+        <div class="tx-stat" style="display:grid; grid-template-columns: auto auto;">
+            <div>
+                <div class="tx-stat-label" data-i18n="tx.stat_sells">Total Vendas</div>
+                <div class="tx-stat-value" id="stat-sells">—</div>
+                <div class="tx-stat-sub" id="stat-sell-count">—</div>
+            </div>
+            <div class="tx-stat-sub" style="margin: auto auto;">
+                <span class="up" id="stat-sell-profit">Lucro: —</span><br>
+                <span class="down" id="stat-sell-loss">Perda: —</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="tx-filter-pills">
+        <button class="tx-filter-pill active" data-broker="" data-i18n="pf.filter_all">Todos</button>
+        <button class="tx-filter-pill" data-broker="XTB">XTB</button>
+        <button class="tx-filter-pill" data-broker="TradeRepublic">Trade Republic</button>
+        <button class="tx-filter-pill" data-broker="Revolut">Revolut</button>
+        <button class="tx-filter-pill" data-broker="WeCity">WeCity</button>
+    </div>
+
+    <div class="tx-filter-pills">
+        <button class="tx-filter-pill active" data-type="" data-i18n="pf.filter_all">Todos</button>
+        <button class="tx-filter-pill" data-type="buy" data-i18n="tx.opt_buy">Compras</button>
+        <button class="tx-filter-pill" data-type="sell" data-i18n="tx.opt_sell">Vendas</button>
+        <button class="tx-filter-pill" data-type="dividend" data-i18n="tx.opt_dividend">Dividendos</button>
+    </div>
+
+    <section class="tx-section" id="buy-section">
+        <div class="tx-section-title" data-i18n="tx.opt_buy">Compras</div>
+        <table class="tx-table">
+            <thead>
+                <tr>
+                    <th data-i18n="tx.col_date">Data</th>
+                    <th data-i18n="tx.col_instrument">Instrumento</th>
+                    <th class="num" data-i18n="tx.col_volume">Volume</th>
+                    <th class="num" data-i18n="tx.col_unit_price">Preço Unit.</th>
+                    <th class="num" data-i18n="tx.col_total">Total</th>
+                    <th data-i18n="tx.col_broker">Broker</th>
+                </tr>
+            </thead>
+            <tbody id="buy-body"></tbody>
+        </table>
+    </section>
+
+    <section class="tx-section" id="sell-section">
+        <div class="tx-section-title" data-i18n="tx.opt_sell">Vendas</div>
+        <table class="tx-table">
+            <thead>
+                <tr>
+                    <th data-i18n="tx.col_date">Data</th>
+                    <th data-i18n="tx.col_instrument">Instrumento</th>
+                    <th class="num" data-i18n="tx.col_volume">Volume</th>
+                    <th class="num" data-i18n="tx.col_unit_price">Preço Unit.</th>
+                    <th class="num" data-i18n="tx.col_total">Total</th>
+                    <th class="num" data-i18n="tx.col_profit_loss">Lucro/Perda</th>
+                    <th data-i18n="tx.col_broker">Broker</th>
+                </tr>
+            </thead>
+            <tbody id="sell-body"></tbody>
+        </table>
+    </section>
+
+    <section class="tx-section" id="div-section">
+        <div class="tx-section-title" data-i18n="tx.opt_dividend">Dividendos</div>
+        <table class="tx-table">
+            <thead>
+                <tr>
+                    <th data-i18n="tx.col_date">Data</th>
+                    <th data-i18n="tx.col_instrument">Instrumento</th>
+                    <th class="num" data-i18n="tx.col_gross">Bruto</th>
+                    <th class="num" data-i18n="tx.col_tax">Imposto</th>
+                    <th class="num" data-i18n="tx.col_net">Líquido</th>
+                    <th data-i18n="tx.col_broker">Broker</th>
+                </tr>
+            </thead>
+            <tbody id="div-body"></tbody>
+        </table>
+    </section>
+</main>
+
+<!-- ── Backdrop ──────────────────────────────────────────── -->
+<div class="edit-backdrop" id="tx-backdrop"></div>
+
+<!-- ── Drawer: nova transação ─────────────────────────────── -->
+<aside class="edit-drawer" id="tx-drawer">
+
+    <div class="edit-drawer-header">
+        <span class="edit-drawer-title" data-i18n="tx.new_tx_title">Nova Transação</span>
+        <button class="edit-close-btn" id="tx-close">✕</button>
+    </div>
+
+    <div class="edit-drawer-body">
+        <div class="add-form-grid">
+            <label class="edit-label"><span data-i18n="tx.field_kind">Tipo</span>
+                <select class="edit-input edit-type-sel" id="tx-kind">
+                    <option value="buy" data-i18n="tx.opt_kind_buy">Compra</option>
+                    <option value="sell" data-i18n="tx.opt_kind_sell">Venda</option>
+                    <option value="dividend" data-i18n="tx.opt_kind_dividend">Dividendo</option>
+                </select>
+            </label>
+            <label class="edit-label"><span data-i18n="tx.field_broker">Broker</span>
+                <select class="edit-input edit-type-sel" id="tx-broker">
+                    <option value="XTB">XTB</option>
+                    <option value="TradeRepublic">Trade Republic</option>
+                    <option value="Revolut">Revolut</option>
+                    <option value="WeCity">WeCity</option>
+                </select>
+            </label>
+            <label class="edit-label"><span data-i18n="pf.field_ticker">Ticker</span>
+                <input class="edit-input" id="tx-ticker" type="text" placeholder="Ex: VWCE">
+            </label>
+            <label class="edit-label"><span data-i18n="tx.field_instrument">Nome do instrumento</span>
+                <input class="edit-input" id="tx-instrument" type="text" placeholder="Ex: FTSE All-World">
+            </label>
+            <label class="edit-label add-full"><span data-i18n="tx.field_isin_optional">ISIN (opcional)</span>
+                <input class="edit-input" id="tx-isin" type="text" placeholder="Ex: IE00B3RBWM25">
+            </label>
+
+            <!-- Campos: compra -->
+            <div id="tx-buy-fields">
+                <label class="edit-label"><span data-i18n="tx.field_volume">Volume</span>
+                    <input class="edit-input" id="tx-buy-volume" type="number" step="any" min="0" placeholder="0">
+                </label>
+                <label class="edit-label"><span data-i18n="tx.field_unit_price">Preço unitário (€)</span>
+                    <input class="edit-input" id="tx-buy-price" type="number" step="0.0001" min="0" placeholder="0,00">
+                </label>
+                <label class="edit-label"><span data-i18n="tx.field_commission">Comissão (€, opcional)</span>
+                    <input class="edit-input" id="tx-buy-fee" type="number" step="0.01" min="0" placeholder="0,00">
+                </label>
+                <label class="edit-label"><span data-i18n="tx.field_date">Data</span>
+                    <input class="edit-input" id="tx-buy-date" type="date">
+                </label>
+            </div>
+
+            <!-- Campos: venda -->
+            <div id="tx-sell-fields" class="hidden">
+                <label class="edit-label"><span data-i18n="tx.field_volume">Volume</span>
+                    <input class="edit-input" id="tx-sell-volume" type="number" step="any" min="0" placeholder="0">
+                </label>
+                <label class="edit-label"><span data-i18n="tx.field_unit_price">Preço unitário (€)</span>
+                    <input class="edit-input" id="tx-sell-price" type="number" step="0.0001" min="0" placeholder="0,00">
+                </label>
+                <label class="edit-label"><span data-i18n="tx.field_commission">Comissão (€, opcional)</span>
+                    <input class="edit-input" id="tx-sell-fee" type="number" step="0.01" min="0" placeholder="0,00">
+                </label>
+                <label class="edit-label"><span data-i18n="tx.field_date">Data</span>
+                    <input class="edit-input" id="tx-sell-date" type="date">
+                </label>
+            </div>
+
+            <!-- Campos: dividendo -->
+            <div id="tx-div-fields" class="hidden">
+                <label class="edit-label"><span data-i18n="tx.field_div_gross">Dividendo bruto (€)</span>
+                    <input class="edit-input" id="tx-div-gross" type="number" step="0.01" min="0" placeholder="0,00">
+                </label>
+                <label class="edit-label"><span data-i18n="tx.field_tax_withheld">Imposto retido (€, opcional)</span>
+                    <input class="edit-input" id="tx-div-tax" type="number" step="0.01" min="0" placeholder="0,00">
+                </label>
+                <label class="edit-label add-full"><span data-i18n="tx.field_date">Data</span>
+                    <input class="edit-input" id="tx-div-date" type="date">
+                </label>
+            </div>
+
+            <!-- Campos: posição nova (só para compra de ativo desconhecido) -->
+            <div id="tx-new-pos-fields" class="hidden">
+                <p class="edit-label add-full" style="color:var(--muted)" data-i18n="tx.new_asset_note">Ativo novo — vai ser criada uma posição:</p>
+                <label class="edit-label"><span data-i18n="tx.field_asset_type">Tipo de ativo</span>
+                    <select class="edit-input edit-type-sel" id="tx-new-type">
+                        <option value="stock" data-i18n="pf.opt_stock">Ação</option>
+                        <option value="etf" data-i18n="pf.opt_etf">ETF</option>
+                        <option value="crypto" data-i18n="pf.opt_crypto">Crypto</option>
+                        <option value="commodity" data-i18n="pf.opt_commodity">Commodity</option>
+                    </select>
+                </label>
+                <label class="edit-label"><span data-i18n="pf.field_currency">Moeda</span>
+                    <select class="edit-input edit-type-sel" id="tx-new-currency">
+                        <option value="EUR">EUR €</option>
+                        <option value="USD">USD $</option>
+                    </select>
+                </label>
+                <label class="edit-label add-full"><span data-i18n="pf.field_yfsymbol">Símbolo Yahoo Finance</span>
+                    <input class="edit-input" id="tx-new-yfsymbol" type="text" placeholder="Ex: VWCE.DE ou BTC-EUR">
+                </label>
+                <label class="edit-label"><span data-i18n="pf.field_price_currency_short">Moeda do preço</span>
+                    <select class="edit-input edit-type-sel" id="tx-new-price-currency">
+                        <option value="EUR">EUR</option>
+                        <option value="USD">USD</option>
+                    </select>
+                </label>
+            </div>
+        </div>
+
+        <p class="dim" id="tx-match-info" style="font-size:12px;min-height:16px"></p>
+        <p id="tx-error" style="color:var(--negative);font-size:12px;display:none"></p>
+    </div>
+
+    <div class="edit-drawer-footer">
+        <div></div>
+        <div style="display:flex;gap:10px">
+            <button class="btn-secondary" id="tx-cancel" data-i18n="pf.cancel">Cancelar</button>
+            <button class="btn-primary"   id="tx-save" data-i18n="pf.add_confirm">Adicionar</button>
+        </div>
+    </div>
+
+</aside>
+
+<script src="i18n.js"></script>
+<script src="navbar.js"></script>
+<script>
+mountNavbar('transactions');
+applyStaticTranslations();
+
+const fmt2 = v => v.toFixed(2).replace('.', ',');
+const fmtN = (v, d = 4) => {
+    const s = v.toFixed(d);
+    return parseFloat(s).toString().replace('.', ',');
+};
+
+// Generate a consistent bg color from a string (for tickers without a known bg)
+function autoColor(str) {
+    let h = 5381;
+    for (let i = 0; i < str.length; i++) h = ((h << 5) + h) ^ str.charCodeAt(i);
+    return `hsl(${Math.abs(h) % 360}, 40%, 22%)`;
+}
+
+function brokerBadge(broker) {
+    const cls = broker === 'XTB' ? 'tx-broker-xtb' : 'tx-broker-tr';
+    return `<span class="tx-broker ${cls}">${broker === 'TradeRepublic' ? 'TR' : broker}</span>`;
+}
+
+function txIcon(ticker, bg) {
+    const label = (ticker || '').replace(/[^A-Z0-9]/gi, '').slice(0, 4).toUpperCase();
+    const color = bg || autoColor(ticker || '');
+    return `<div class="tx-icon" style="background:${color}">${label}</div>`;
+}
+
+let allBuys  = [];
+let allDivs  = [];
+let allSells = [];
+let positionsBg = {}; // isin/ticker → bg color
+let selectedBroker = '';
+let selectedType = '';
+let positions = []; // full positions.json, kept for the "Nova Transação" form
+let txData    = null; // full transactions.json, kept for the "Nova Transação" form
+const round2  = v => Math.round(v * 100) / 100;
+
+async function load() {
+    const [txRaw, posRaw] = await Promise.all([
+        fetch('/api/data/transactions.json?_=' + Date.now()).then(r => r.json()),
+        fetch('/api/data/positions.json?_=' + Date.now()).then(r => r.json()).catch(() => []),
+    ]);
+
+    txData    = txRaw;
+    positions = posRaw;
+
+    // Build bg map from positions.json
+    positionsBg = {};
+    for (const p of positions) {
+        if (p.isin)   positionsBg[p.isin]   = p.bg;
+        if (p.ticker) positionsBg[p.ticker] = p.bg;
+    }
+
+    allBuys  = [...txData.transactions.buy].sort((a, b) =>
+        new Date(b.dataCompra) - new Date(a.dataCompra)
+    );
+    allDivs  = [...txData.transactions.dividends].sort((a, b) =>
+        new Date(b.dataDividendo) - new Date(a.dataDividendo)
+    );
+    allSells = [...(txData.transactions.sell || [])].sort((a, b) =>
+        new Date(b.dataVenda) - new Date(a.dataVenda)
+    );
+
+    updateStats();
+    render();
+}
+
+function updateStats(broker = '') {
+    const buys = broker ? allBuys.filter(b => b.broker === broker) : allBuys;
+    const divs = broker ? allDivs.filter(d => d.broker === broker) : allDivs;
+
+    const totalInvested = buys.reduce((s, b) => s + b.valorTotal, 0);
+    const totalDivs  = divs.reduce((s, d) => s + d.dividendo, 0);
+    const sells      = broker ? allSells.filter(s => s.broker === broker) : allSells;
+    const totalSells = sells.reduce((s, v) => s + v.valorTotal, 0);
+    const sellProfit = sells.reduce((s, v) => s + (v.lucro > 0 ? v.lucro : 0), 0);
+    const sellLoss   = sells.reduce((s, v) => s + (v.lucro < 0 ? v.lucro : 0), 0);
+
+    document.getElementById('stat-invested').textContent  = fmt2(totalInvested) + ' €';
+    document.getElementById('stat-tx-count').textContent  = t('tx.buys_count', { n: buys.length });
+    document.getElementById('stat-dividends').textContent = fmt2(totalDivs) + ' €';
+    document.getElementById('stat-div-count').textContent = t('tx.payments_count', { n: divs.length });
+    document.getElementById('stat-sells').textContent     = totalSells > 0 ? fmt2(totalSells) + ' €' : '—';
+    document.getElementById('stat-sell-count').textContent = sells.length > 0 ? t('tx.sells_count', { n: sells.length, plural: sells.length > 1 ? 's' : '' }) : '—';
+    document.getElementById('stat-sell-profit').textContent = t('tx.profit_label') + ' ' + (sellProfit > 0 ? '+' + fmt2(sellProfit) + ' €' : '—');
+    document.getElementById('stat-sell-loss').textContent   = t('tx.loss_label') + ' ' + (sellLoss < 0 ? fmt2(sellLoss) + ' €' : '—');
+}
+
+function render() {
+    const broker = selectedBroker;
+    const buys = broker ? allBuys.filter(b => b.broker === broker) : allBuys;
+    const divs = broker ? allDivs.filter(d => d.broker === broker) : allDivs;
+    const sells = broker ? allSells.filter(s => s.broker === broker) : allSells;
+
+    document.getElementById('buy-section').style.display = !selectedType || selectedType === 'buy' ? '' : 'none';
+    document.getElementById('sell-section').style.display = !selectedType || selectedType === 'sell' ? '' : 'none';
+    document.getElementById('div-section').style.display = !selectedType || selectedType === 'dividend' ? '' : 'none';
+
+    const buyBody = document.getElementById('buy-body');
+    if (!buys.length) {
+        buyBody.innerHTML = `<tr><td colspan="6" class="tx-empty">${t('tx.no_buys')}</td></tr>`;
+    } else {
+        buyBody.innerHTML = buys.map(b => {
+            const key = b.isin || b.ticker;
+            const bg  = positionsBg[key] || positionsBg[b.ticker] || autoColor(b.ticker);
+            const isinLine = b.isin ? `<span class="tx-isin">${b.isin}</span>` : '';
+            const priceFmt = b.valorCompra >= 100
+                ? fmt2(b.valorCompra)
+                : b.valorCompra.toFixed(3).replace('.', ',');
+            return `
+            <tr data-broker="${b.broker}">
+                <td class="tx-date">${b.dataCompra}</td>
+                <td>
+                    <div class="tx-instrument">
+                        ${txIcon(b.ticker, bg)}
+                        <div>
+                            <span class="tx-name">${b.instrument}</span>
+                            <span class="tx-sub">${b.ticker}</span>
+                            ${isinLine}
+                        </div>
+                    </div>
+                </td>
+                <td class="num">${fmtN(b.volume, 4)}</td>
+                <td class="num">${priceFmt} €</td>
+                <td class="num tx-total">${fmt2(b.valorTotal)} €</td>
+                <td>${brokerBadge(b.broker)}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    const sellBody = document.getElementById('sell-body');
+    if (!sells.length) {
+        sellBody.innerHTML = `<tr><td colspan="7" class="tx-empty">${t('tx.no_sells')}</td></tr>`;
+    } else {
+        sellBody.innerHTML = sells.map(s => {
+            const key = s.isin || s.ticker;
+            const bg  = positionsBg[key] || positionsBg[s.ticker] || autoColor(s.ticker);
+            const isinLine = s.isin ? `<span class="tx-isin">${s.isin}</span>` : '';
+            const priceFmt = s.valorVenda >= 100
+                ? fmt2(s.valorVenda)
+                : s.valorVenda.toFixed(3).replace('.', ',');
+            const profit = Number.isFinite(s.lucro) ? s.lucro : null;
+            const profitClass = profit > 0 ? 'up' : profit < 0 ? 'down' : '';
+            const profitText = profit === null ? '—' : (profit > 0 ? '+' : '') + fmt2(profit) + ' €';
+            return `
+            <tr data-broker="${s.broker}">
+                <td class="tx-date">${s.dataVenda}</td>
+                <td>
+                    <div class="tx-instrument">
+                        ${txIcon(s.ticker, bg)}
+                        <div>
+                            <span class="tx-name">${s.instrument}</span>
+                            <span class="tx-sub">${s.ticker}</span>
+                            ${isinLine}
+                        </div>
+                    </div>
+                </td>
+                <td class="num">${fmtN(s.volume, 4)}</td>
+                <td class="num">${priceFmt} €</td>
+                <td class="num tx-total">${fmt2(s.valorTotal)} €</td>
+                <td class="num ${profitClass}">${profitText}</td>
+                <td>${brokerBadge(s.broker)}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    const divBody = document.getElementById('div-body');
+    if (!divs.length) {
+        divBody.innerHTML = `<tr><td colspan="6" class="tx-empty">${t('tx.no_divs')}</td></tr>`;
+    } else {
+        divBody.innerHTML = divs.map(d => {
+            const key = d.isin || d.ticker;
+            const bg  = positionsBg[key] || positionsBg[d.ticker] || autoColor(d.ticker);
+            const isinLine = d.isin ? `<span class="tx-isin">${d.isin}</span>` : '';
+            return `
+            <tr data-broker="${d.broker}">
+                <td class="tx-date">${d.dataDividendo}</td>
+                <td>
+                    <div class="tx-instrument">
+                        ${txIcon(d.ticker, bg)}
+                        <div>
+                            <span class="tx-name">${d.instrument}</span>
+                            <span class="tx-sub">${d.ticker}</span>
+                            ${isinLine}
+                        </div>
+                    </div>
+                </td>
+                <td class="num">${fmt2(d.dividendoBruto)} €</td>
+                <td class="num" style="color:var(--negative)">−${fmt2(d.impostoRetido)} €</td>
+                <td class="num tx-total up">+${fmt2(d.dividendo)} €</td>
+                <td>${brokerBadge(d.broker)}</td>
+            </tr>`;
+        }).join('');
+    }
+}
+
+// Filter pills
+document.querySelectorAll('.tx-filter-pill[data-broker]').forEach(pill => {
+    pill.addEventListener('click', () => {
+        document.querySelectorAll('.tx-filter-pill[data-broker]').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        selectedBroker = pill.dataset.broker;
+        updateStats(selectedBroker);
+        render();
+    });
+});
+
+document.querySelectorAll('.tx-filter-pill[data-type]').forEach(pill => {
+    pill.addEventListener('click', () => {
+        document.querySelectorAll('.tx-filter-pill[data-type]').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        selectedType = pill.dataset.type;
+        render();
+    });
+});
+
+// ── Nova Transação ───────────────────────────────────────────────────────
+const SPECIAL_TYPES = ['realestate', 'bonds']; // não usam units/avgBuyPrice, incompatíveis com buy/sell
+
+function findPosition(isin, ticker) {
+    const isinNorm   = (isin || '').trim();
+    const tickerNorm = (ticker || '').trim().toUpperCase();
+    if (isinNorm) {
+        const byIsin = positions.find(p => p.isin === isinNorm);
+        if (byIsin) return byIsin;
+    }
+    if (tickerNorm) {
+        return positions.find(p => (p.ticker || '').toUpperCase() === tickerNorm) || null;
+    }
+    return null;
+}
+
+function openTxDrawer() {
+    resetTxForm();
+    document.getElementById('tx-drawer').classList.add('open');
+    document.getElementById('tx-backdrop').classList.add('open');
+}
+
+function closeTxDrawer() {
+    document.getElementById('tx-drawer').classList.remove('open');
+    document.getElementById('tx-backdrop').classList.remove('open');
+}
+
+function resetTxForm() {
+    document.getElementById('tx-kind').value = 'buy';
+    document.getElementById('tx-broker').value = 'XTB';
+    ['tx-ticker', 'tx-instrument', 'tx-isin', 'tx-buy-volume', 'tx-buy-price', 'tx-buy-fee',
+     'tx-sell-volume', 'tx-sell-price', 'tx-sell-fee', 'tx-div-gross', 'tx-div-tax', 'tx-new-yfsymbol']
+        .forEach(id => { document.getElementById(id).value = ''; });
+
+    const today = new Date().toISOString().slice(0, 10);
+    document.getElementById('tx-buy-date').value  = today;
+    document.getElementById('tx-sell-date').value = today;
+    document.getElementById('tx-div-date').value  = today;
+
+    document.getElementById('tx-new-type').value          = 'stock';
+    document.getElementById('tx-new-currency').value      = 'EUR';
+    document.getElementById('tx-new-price-currency').value = 'EUR';
+
+    document.getElementById('tx-buy-fields').classList.remove('hidden');
+    document.getElementById('tx-sell-fields').classList.add('hidden');
+    document.getElementById('tx-div-fields').classList.add('hidden');
+    document.getElementById('tx-new-pos-fields').classList.add('hidden');
+    document.getElementById('tx-match-info').textContent = '';
+    document.getElementById('tx-error').style.display = 'none';
+}
+
+function updateTxMatchInfo() {
+    const kind   = document.getElementById('tx-kind').value;
+    const ticker = document.getElementById('tx-ticker').value.trim();
+    const isin   = document.getElementById('tx-isin').value.trim();
+    const info     = document.getElementById('tx-match-info');
+    const newFields = document.getElementById('tx-new-pos-fields');
+
+    if (!ticker) { info.textContent = ''; info.style.color = ''; newFields.classList.add('hidden'); return; }
+
+    const match = findPosition(isin, ticker);
+
+    if (match && SPECIAL_TYPES.includes(match.type)) {
+        info.textContent = t('tx.incompatible_type');
+        info.style.color = 'var(--negative)';
+        newFields.classList.add('hidden');
+    } else if (match) {
+        info.textContent = t('tx.existing_position', { name: match.name, units: match.units ?? 0, price: fmt2(match.avgBuyPrice || 0) });
+        info.style.color = '';
+        newFields.classList.add('hidden');
+    } else if (kind === 'buy') {
+        info.textContent = t('tx.new_asset_will_create');
+        info.style.color = '';
+        newFields.classList.remove('hidden');
+    } else if (kind === 'sell') {
+        info.textContent = t('tx.no_position_for_sell');
+        info.style.color = 'var(--negative)';
+        newFields.classList.add('hidden');
+    } else {
+        info.textContent = '';
+        info.style.color = '';
+        newFields.classList.add('hidden');
+    }
+}
+
+document.getElementById('open-add-tx').addEventListener('click', openTxDrawer);
+document.getElementById('tx-close').addEventListener('click', closeTxDrawer);
+document.getElementById('tx-cancel').addEventListener('click', closeTxDrawer);
+document.getElementById('tx-backdrop').addEventListener('click', closeTxDrawer);
+
+document.getElementById('tx-kind').addEventListener('change', function () {
+    const kind = this.value;
+    document.getElementById('tx-buy-fields').classList.toggle('hidden', kind !== 'buy');
+    document.getElementById('tx-sell-fields').classList.toggle('hidden', kind !== 'sell');
+    document.getElementById('tx-div-fields').classList.toggle('hidden', kind !== 'dividend');
+    updateTxMatchInfo();
+});
+
+['tx-ticker', 'tx-isin'].forEach(id => {
+    document.getElementById(id).addEventListener('input', updateTxMatchInfo);
+});
+
+document.getElementById('tx-save').addEventListener('click', async function () {
+    const errEl = document.getElementById('tx-error');
+    const showError = msg => { errEl.textContent = msg; errEl.style.display = 'block'; };
+    errEl.style.display = 'none';
+
+    const kind       = document.getElementById('tx-kind').value;
+    const broker     = document.getElementById('tx-broker').value;
+    const ticker     = document.getElementById('tx-ticker').value.trim().toUpperCase();
+    const instrument = document.getElementById('tx-instrument').value.trim();
+    const isin       = document.getElementById('tx-isin').value.trim();
+
+    if (!ticker || !instrument) { showError(t('tx.err_fill_ticker_instrument')); return; }
+
+    const match = findPosition(isin, ticker);
+    if (match && SPECIAL_TYPES.includes(match.type)) {
+        showError(t('tx.incompatible_type'));
+        return;
+    }
+
+    let tx;
+
+    if (kind === 'buy') {
+        const volume      = +document.getElementById('tx-buy-volume').value;
+        const valorCompra = +document.getElementById('tx-buy-price').value;
+        const comissao    = +document.getElementById('tx-buy-fee').value || 0;
+        const dataCompra  = document.getElementById('tx-buy-date').value;
+        if (!(volume > 0) || !(valorCompra > 0) || !dataCompra) {
+            showError(t('tx.err_fill_buy'));
+            return;
+        }
+
+        tx = {
+            ticker, instrument, broker, dataCompra, volume, valorCompra,
+            valorTotal: round2(volume * valorCompra + comissao),
+        };
+        if (isin) tx.isin = isin;
+        if (comissao > 0) tx.comissao = round2(comissao);
+
+        if (match) {
+            const newUnits = match.units + volume;
+            match.avgBuyPrice = (match.units * match.avgBuyPrice + volume * valorCompra) / newUnits;
+            match.units = newUnits;
+            match.cost  = round2(match.units * match.avgBuyPrice);
+        } else {
+            const type          = document.getElementById('tx-new-type').value;
+            const currency      = document.getElementById('tx-new-currency').value;
+            const yfSymbol      = document.getElementById('tx-new-yfsymbol').value.trim();
+            const priceCurrency = document.getElementById('tx-new-price-currency').value;
+            positions.push({
+                isin: isin || ticker.toLowerCase() + '-' + Date.now(),
+                type, name: instrument, ticker,
+                bg: autoColor(ticker), currency, reinvest: false,
+                yfSymbol, priceCurrency,
+                units: volume, avgBuyPrice: valorCompra, currentPrice: valorCompra,
+                cost: round2(volume * valorCompra),
+            });
+        }
+    } else if (kind === 'sell') {
+        if (!match) { showError(t('tx.err_no_position_sell')); return; }
+
+        const volume     = +document.getElementById('tx-sell-volume').value;
+        const valorVenda = +document.getElementById('tx-sell-price').value;
+        const comissao   = +document.getElementById('tx-sell-fee').value || 0;
+        const dataVenda  = document.getElementById('tx-sell-date').value;
+        if (!(volume > 0) || !(valorVenda > 0) || !dataVenda) {
+            showError(t('tx.err_fill_sell'));
+            return;
+        }
+        if (volume > match.units + 1e-9) {
+            showError(t('tx.err_not_enough_units', { units: match.units }));
+            return;
+        }
+
+        const lucro     = round2((valorVenda - match.avgBuyPrice) * volume);
+        const custoBase = round2(match.avgBuyPrice * volume);
+
+        tx = {
+            ticker, instrument, broker, dataVenda, volume, valorVenda,
+            valorTotal: round2(volume * valorVenda),
+            custoBase, lucro,
+        };
+        if (isin) tx.isin = isin;
+        if (comissao > 0) tx.comissao = round2(comissao);
+
+        const remaining = match.units - volume;
+        if (remaining <= 1e-9) {
+            positions = positions.filter(p => p !== match);
+        } else {
+            match.units = remaining;
+            match.cost  = round2(match.units * match.avgBuyPrice);
+        }
+    } else {
+        const dividendoBruto  = +document.getElementById('tx-div-gross').value;
+        const impostoRetido   = +document.getElementById('tx-div-tax').value || 0;
+        const dataDividendo   = document.getElementById('tx-div-date').value;
+        if (!(dividendoBruto > 0) || !dataDividendo) {
+            showError(t('tx.err_fill_dividend'));
+            return;
+        }
+
+        tx = {
+            ticker, instrument, broker, dataDividendo,
+            dividendoBruto: round2(dividendoBruto),
+            impostoRetido: round2(impostoRetido),
+            dividendo: round2(dividendoBruto - impostoRetido),
+        };
+        if (isin) tx.isin = isin;
+    }
+
+    const btn = this;
+    btn.textContent = t('pf.saving');
+    btn.disabled = true;
+    try {
+        const bucket = kind === 'buy' ? 'buy' : kind === 'sell' ? 'sell' : 'dividends';
+        txData.transactions[bucket].push(tx);
+
+        let resp = await fetch('/api/data/transactions.json', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(txData, null, 2),
+        });
+        if (!resp.ok) throw new Error((await resp.json()).error || t('tx.err_save_tx'));
+
+        if (kind !== 'dividend') {
+            resp = await fetch('/api/data/positions.json', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(positions, null, 2),
+            });
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                // Reverte a transação já gravada, para não ficar dessincronizada da posição
+                txData.transactions[bucket].pop();
+                await fetch('/api/data/transactions.json', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(txData, null, 2),
+                }).catch(() => {});
+                throw new Error((err.error || t('tx.err_save_position')) + t('tx.reverted_suffix'));
+            }
+        }
+
+        closeTxDrawer();
+        await load();
+    } catch (e) {
+        showError(e.message || t('tx.err_save_generic'));
+    } finally {
+        btn.textContent = t('pf.add_confirm');
+        btn.disabled = false;
+    }
+});
+
+load();
+</script>
+
+</body>
+</html>

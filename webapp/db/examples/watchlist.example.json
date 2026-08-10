@@ -1,0 +1,30 @@
+[
+  {
+    "id": "favoritos",
+    "name": "Favoritos",
+    "items": [
+      {
+        "name": "Vanguard FTSE All-World",
+        "ticker": "VWCE",
+        "yfSymbol": "VWCE.DE",
+        "bg": "#061520",
+        "priceCurrency": "EUR",
+        "price": null,
+        "change": null,
+        "pct": null,
+        "up": true
+      },
+      {
+        "name": "Microsoft Corp.",
+        "ticker": "MSFT",
+        "yfSymbol": "MSFT",
+        "bg": "#0d2035",
+        "priceCurrency": "USD",
+        "price": null,
+        "change": null,
+        "pct": null,
+        "up": true
+      }
+    ]
+  }
+]

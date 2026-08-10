@@ -1,0 +1,47 @@
+[
+  {
+    "isin": "IE00B4L5Y983",
+    "type": "etf",
+    "name": "iShares Core MSCI World",
+    "ticker": "IWDA",
+    "yfSymbol": "IWDA.AS",
+    "priceCurrency": "EUR",
+    "bg": "#0d2035",
+    "units": 10,
+    "avgBuyPrice": 80,
+    "currentPrice": 85,
+    "currency": "EUR",
+    "reinvest": true,
+    "cost": 800
+  },
+  {
+    "isin": "US0378331005",
+    "type": "stock",
+    "name": "Apple Inc.",
+    "ticker": "AAPL",
+    "yfSymbol": "AAPL",
+    "priceCurrency": "USD",
+    "bg": "#1a1a1a",
+    "units": 5,
+    "avgBuyPrice": 150,
+    "currentPrice": 190,
+    "currency": "EUR",
+    "reinvest": false,
+    "cost": 750
+  },
+  {
+    "isin": "btc-example",
+    "type": "crypto",
+    "name": "Bitcoin",
+    "ticker": "BTC",
+    "yfSymbol": "BTC-EUR",
+    "priceCurrency": "EUR",
+    "bg": "#2a1500",
+    "units": 0.01,
+    "avgBuyPrice": 40000,
+    "currentPrice": 55000,
+    "currency": "EUR",
+    "reinvest": false,
+    "cost": 400
+  }
+]

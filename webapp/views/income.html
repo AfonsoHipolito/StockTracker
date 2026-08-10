@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="inc.page_title">Income — StockTracker</title>
+    <link rel="icon" type="image/x-icon" href="images/icon.png">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav id="navbar"></nav>
+
+<main class="income-page">
+
+    <!-- ── Header ──────────────────────────────────────────────────── -->
+    <div class="income-header">
+        <div class="income-header-top">
+            <h1 class="income-title" data-i18n="inc.title">Gestão de Rendimentos</h1>
+            <div id="month-tabs" class="income-month-tabs"></div>
+        </div>
+    </div>
+
+    <!-- ── Stats bar ────────────────────────────────────────────────── -->
+    <div class="income-stats-bar">
+        <div class="income-stat">
+            <span class="income-stat-label" data-i18n="inc.stat_allocated">Alocado</span>
+            <span class="income-stat-value" id="stat-allocated">0,00 €</span>
+            <span class="income-stat-pct" id="stat-allocated-pct">0,0%</span>
+        </div>
+        <div class="income-stat-div"></div>
+        <div class="income-stat">
+            <span class="income-stat-label" data-i18n="inc.stat_savings">Poupança</span>
+            <span class="income-stat-value" id="stat-remaining">0,00 €</span>
+            <span class="income-stat-pct" id="stat-remaining-pct">0,0%</span>
+        </div>
+        <div class="income-stat-div"></div>
+        <div class="income-stat">
+            <span class="income-stat-label" data-i18n="inc.stat_investments">Investimentos</span>
+            <span class="income-stat-value" id="stat-invest">0,00 €</span>
+            <span class="income-stat-pct" id="stat-invest-pct">0,0%</span>
+        </div>
+        <div class="income-stat-div"></div>
+        <div class="income-stat">
+            <span class="income-stat-label" data-i18n="inc.stat_excess">Excesso</span>
+            <span class="income-stat-value" id="stat-excess" style="color:var(--muted)">—</span>
+        </div>
+        <span id="income-save-status" class="income-save-status"></span>
+        <div class="income-stat-div" style="margin-left:auto"></div>
+        <div class="income-stat income-stat-right">
+            <span class="income-stat-label" data-i18n="inc.stat_monthly_income">Rendimento mensal</span>
+            <span class="income-stat-input-wrap">
+                <input class="income-stat-input" id="income-salary" type="number" step="100" min="0" placeholder="0">
+                <span class="income-stat-eur">€</span>
+            </span>
+        </div>
+    </div>
+
+    <!-- ── Split ────────────────────────────────────────────────────── -->
+    <div class="income-split">
+
+        <!-- Left: editable mensalidades + categorias -->
+        <div class="income-left">
+            <div class="income-cats-header">
+                <span class="income-cats-title" data-i18n="inc.mensalidades_title">Mensalidades</span>
+                <div style="display:flex;gap:24px;padding-right:4px">
+                    <span class="income-col-h" style="width:80px;text-align:right" data-i18n="inc.col_value">Valor</span>
+                    <span class="income-col-h" style="width:56px;text-align:right">%</span>
+                    <span style="width:28px"></span>
+                </div>
+            </div>
+            <p class="income-group-hint" data-i18n="inc.mensalidades_hint">Valor fixo, repete-se automaticamente todos os meses.</p>
+
+            <div id="mensalidades-rows" class="income-rows"></div>
+
+            <div class="income-add-wrap" id="add-mensalidade-wrap">
+                <div class="income-add-dot" id="add-mensalidade-color-dot" style="background:#3d9be9" data-i18n-title="inc.color_picker_title" title="Escolher cor"></div>
+                <input class="income-add-name" id="add-mensalidade-name-input" type="text" data-i18n-placeholder="inc.add_mensalidade_placeholder" placeholder="Nova mensalidade…">
+                <input class="income-add-amt"  id="add-mensalidade-amt-input"  type="number" step="10" min="0" placeholder="0">
+                <span class="income-row-sym">€</span>
+                <button class="income-add-btn" id="add-mensalidade-btn" data-i18n-title="pf.add_confirm" title="Adicionar">+</button>
+            </div>
+
+            <div class="income-cats-header" style="margin-top:26px">
+                <span class="income-cats-title" data-i18n="inc.categories_title">Categorias</span>
+                <div style="display:flex;gap:24px;padding-right:4px">
+                    <span class="income-col-h" style="width:80px;text-align:right" data-i18n="inc.col_value">Valor</span>
+                    <span class="income-col-h" style="width:56px;text-align:right">%</span>
+                    <span style="width:28px"></span>
+                </div>
+            </div>
+            <p class="income-group-hint" data-i18n="inc.categories_hint">Reinicia a 0 € no início de cada mês.</p>
+
+            <div id="income-rows" class="income-rows"></div>
+
+            <div class="income-add-wrap" id="add-categoria-wrap">
+                <div class="income-add-dot" id="add-color-dot" style="background:#3d9be9" data-i18n-title="inc.color_picker_title" title="Escolher cor"></div>
+                <input class="income-add-name" id="add-name-input" type="text" data-i18n-placeholder="inc.add_category_placeholder" placeholder="Nova categoria…">
+                <input class="income-add-amt"  id="add-amt-input"  type="number" step="10" min="0" placeholder="0">
+                <span class="income-row-sym">€</span>
+                <button class="income-add-btn" id="add-cat-btn" data-i18n-title="pf.add_confirm" title="Adicionar">+</button>
+            </div>
+        </div>
+
+        <!-- Right: chart + legend -->
+        <div class="income-right">
+            <div class="income-chart-wrap">
+                <canvas id="incomeChart"></canvas>
+                <div class="income-chart-center">
+                    <span class="income-chart-total" id="chart-center-total">—</span>
+                    <span class="income-chart-sub" data-i18n="inc.chart_sub">despesas do mês</span>
+                </div>
+            </div>
+            <div id="income-legend" class="income-legend"></div>
+        </div>
+
+    </div>
+</main>
+
+<!-- Color picker popover (appended to body so it's never clipped) -->
+<div id="color-picker" class="income-color-picker hidden"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="i18n.js"></script>
+<script src="navbar.js"></script>
+<script>
+mountNavbar('income');
+applyStaticTranslations();
+
+// ── Constants ──────────────────────────────────────────────────────────────
+const PALETTE = [
+    '#3d9be9','#00c096','#f0a500','#e64c4c',
+    '#c060ff','#f7931a','#00b4d8','#e63946',
+    '#2dc653','#5c8bd6','#ff6b35','#ff6b6b',
+    '#a8dadc','#e9c46a','#264653','#888888',
+];
+
+const MONTH_NAMES = Array.from({ length: 12 }, (_, i) => t('inc.month_' + (i + 1)));
+
+const DEFAULT_CATS = [
+    { name: t('inc.cat_housing'),   color: '#3d9be9', amount: 0 },
+    { name: t('inc.cat_food'),      color: '#00c096', amount: 0 },
+    { name: t('inc.cat_transport'), color: '#f0a500', amount: 0 },
+    { name: t('inc.cat_leisure'),   color: '#c060ff', amount: 0 },
+    { name: t('inc.cat_health'),    color: '#00b4d8', amount: 0 },
+    { name: t('inc.cat_clothing'),  color: '#f7931a', amount: 0 },
+    { name: t('inc.cat_other'),     color: '#888888', amount: 0 },
+];
+
+// ── State ──────────────────────────────────────────────────────────────────
+let incomeData      = { income: 0, month: null, mensalidades: [], categories: [] };
+let txData          = { transactions: { buy: [] } };
+let chart           = null;
+let saveTimer       = null;
+let addColorMens    = '#3d9be9';
+let addColorCat     = '#3d9be9';
+let pickerTarget    = null;   // catId | 'add-mensalidade' | 'add-categoria' | null
+let dragSrc         = null;
+let viewMonthKey    = null;   // mês atualmente mostrado/editado
+let viewData        = incomeData; // incomeData (mês atual) OU um relatório arquivado OU dados gerados por omissão
+let stripYear       = null;   // ano mostrado na tira de meses
+let stripStart      = null;   // "YYYY-MM" do 1º mês da janela de 5 mostrada na tira
+
+const fmt  = v => v.toFixed(2).replace('.', ',');
+const uid  = () => 'cat-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+const monthKey = () => new Date().toISOString().slice(0, 7);
+
+function monthLabel(mk) {
+    const m = parseInt(mk.split('-')[1], 10);
+    return MONTH_NAMES[m - 1];
+}
+
+function addMonths(mk, delta) {
+    const [y, m] = mk.split('-').map(Number);
+    const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+// ── Data I/O ───────────────────────────────────────────────────────────────
+async function loadIncome() {
+    try {
+        const raw = await fetch('/api/data/income.json?_=' + Date.now()).then(r => r.json());
+        incomeData = raw;
+    } catch { incomeData = { income: 0, month: null, mensalidades: [], categories: [] }; }
+
+    if (!incomeData.mensalidades) incomeData.mensalidades = [];
+
+    let needsSave = false;
+    if (!incomeData.categories?.length) {
+        incomeData.categories = DEFAULT_CATS.map(c => ({ id: uid(), ...c }));
+        needsSave = true;
+    }
+
+    const rolled = await checkMonthRollover();
+    if (needsSave && !rolled) await persistNow();
+
+    viewData     = incomeData;
+    viewMonthKey = monthKey();
+}
+
+// Deteta mudança de mês: arquiva o mês anterior em /reports, mensalidades mantêm-se,
+// categorias reiniciam a 0€ para o mês novo.
+async function checkMonthRollover() {
+    const cur = monthKey();
+
+    if (!incomeData.month) {
+        incomeData.month = cur;
+        await persistNow();
+        return true;
+    }
+
+    if (incomeData.month !== cur) {
+        try {
+            await fetch(`/api/reports/${incomeData.month}`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({
+                    month:        incomeData.month,
+                    income:       incomeData.income,
+                    mensalidades: incomeData.mensalidades,
+                    categories:   incomeData.categories,
+                }, null, 2),
+            });
+        } catch { /* falha a arquivar não deve bloquear o mês novo */ }
+
+        incomeData.month      = cur;
+        incomeData.categories = incomeData.categories.map(c => ({ ...c, amount: 0 }));
+        await persistNow();
+        return true;
+    }
+
+    return false;
+}
+
+async function loadTransactions() {
+    try {
+        txData = await fetch('/api/data/transactions.json?_=' + Date.now()).then(r => r.json());
+    } catch { txData = { transactions: { buy: [] } }; }
+}
+
+// Total investido num mês, calculado a partir das compras em transactions.json (não editável à mão)
+function getInvestedForMonth(mk) {
+    return (txData.transactions?.buy || [])
+        .filter(b => (b.dataCompra || '').startsWith(mk))
+        .reduce((s, b) => s + (b.valorTotal || 0), 0);
+}
+
+async function persistNow() {
+    try {
+        await fetch('/api/data/income.json', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(incomeData, null, 2),
+        });
+    } catch { /* ignore on first-load */ }
+}
+
+function scheduleSave() {
+    clearTimeout(saveTimer);
+    const st = document.getElementById('income-save-status');
+    if (st) { st.textContent = ''; st.className = 'income-save-status'; }
+    saveTimer = setTimeout(async () => {
+        try {
+            const resp = await saveViewData();
+            if (!st) return;
+            if (resp.ok) {
+                st.textContent = t('an.saved_status');
+                st.className   = 'income-save-status saved';
+                setTimeout(() => { if (st) st.textContent = ''; }, 2500);
+            } else {
+                st.textContent = t('inc.save_error_status', { status: resp.status });
+                st.className   = 'income-save-status error';
+            }
+        } catch {
+            const st2 = document.getElementById('income-save-status');
+            if (st2) { st2.textContent = t('inc.no_connection_status'); st2.className = 'income-save-status error'; }
+        }
+    }, 700);
+}
+
+// ── Tira de meses (5 em janela) + seletor de ano ───────────────────────────
+// Ano-âncora do histórico: o seletor de ano lista de START_YEAR até ao ano corrente.
+const START_YEAR = 2025;
+
+function currentYear() { return parseInt(monthKey().split('-')[0], 10); }
+
+// Limite esquerdo da tira: Janeiro do ano mostrado.
+function stripLeftBound() { return `${stripYear}-01`; }
+
+// Limite direito: Dezembro do ano mostrado, ou o mês seguinte ao atual (o que vier primeiro) —
+// não é possível navegar para além do próximo mês, mesmo dentro do ano corrente.
+function stripRightBound() {
+    const yearEnd = `${stripYear}-12`;
+    if (stripYear === currentYear()) {
+        const next = addMonths(monthKey(), 1);
+        return next < yearEnd ? next : yearEnd;
+    }
+    return yearEnd;
+}
+
+// Garante que a janela de 5 meses nunca sai de [stripLeftBound, stripRightBound].
+function clampStripStart(start) {
+    const left     = stripLeftBound();
+    const maxStart = addMonths(stripRightBound(), -4);
+    if (start < left) return left;
+    if (start > maxStart) return maxStart;
+    return start;
+}
+
+function setStripYear(year) {
+    stripYear = year;
+    if (year === currentYear()) {
+        stripStart = clampStripStart(addMonths(monthKey(), -3));
+    } else {
+        // Ano passado: mostra por omissão os últimos 5 meses desse ano.
+        stripStart = clampStripStart(`${year}-12`);
+    }
+    renderMonthTabs();
+}
+
+function renderMonthTabs() {
+    const container = document.getElementById('month-tabs');
+    if (!container) return;
+
+    const next    = addMonths(monthKey(), 1);
+    const window_ = [0, 1, 2, 3, 4].map(i => addMonths(stripStart, i));
+    const canPrev = stripStart > stripLeftBound();
+    const canNext = stripStart < addMonths(stripRightBound(), -4);
+
+    const monthsHtml = window_.map(mk => {
+        const isNext   = mk === next;
+        const isActive = viewMonthKey === mk;
+        const cls = ['income-month-tab'];
+        if (isNext) cls.push('disabled');
+        if (isActive) cls.push('active');
+        return `<button class="${cls.join(' ')}" data-month="${mk}" ${isNext ? 'disabled' : ''}>${monthLabel(mk)}</button>`;
+    }).join('');
+
+    container.innerHTML = `
+        <div class="income-year-picker" id="year-picker">
+            <button class="income-year-btn" id="year-picker-btn" type="button">${stripYear} <span class="income-year-chevron">▾</span></button>
+            <div class="income-year-list hidden" id="year-list"></div>
+        </div>
+        <button class="income-strip-arrow" id="strip-prev" type="button" title="${t('inc.prev_months_title')}" ${canPrev ? '' : 'disabled'}>‹</button>
+        <div class="income-month-strip">${monthsHtml}</div>
+        <button class="income-strip-arrow" id="strip-next" type="button" title="${t('inc.next_months_title')}" ${canNext ? '' : 'disabled'}>›</button>
+    `;
+
+    container.querySelectorAll('.income-month-tab:not(.disabled)').forEach(btn => {
+        btn.addEventListener('click', () => selectMonth(btn.dataset.month));
+    });
+
+    document.getElementById('strip-prev').addEventListener('click', () => {
+        stripStart = clampStripStart(addMonths(stripStart, -3));
+        renderMonthTabs();
+    });
+    document.getElementById('strip-next').addEventListener('click', () => {
+        stripStart = clampStripStart(addMonths(stripStart, 3));
+        renderMonthTabs();
+    });
+
+    renderYearPicker();
+}
+
+function renderYearPicker() {
+    const btn  = document.getElementById('year-picker-btn');
+    const list = document.getElementById('year-list');
+    if (!btn || !list) return;
+
+    const years = [];
+    for (let y = START_YEAR; y <= currentYear(); y++) years.push(y);
+
+    list.innerHTML = years.map(y => `
+        <button type="button" class="income-year-option ${y === stripYear ? 'active' : ''}" data-year="${y}">${y}</button>
+    `).join('');
+
+    list.querySelectorAll('.income-year-option').forEach(opt => {
+        opt.addEventListener('click', e => {
+            e.stopPropagation();
+            setStripYear(parseInt(opt.dataset.year, 10));
+            list.classList.add('hidden');
+        });
+    });
+
+    btn.addEventListener('click', e => {
+        e.stopPropagation();
+        list.classList.toggle('hidden');
+    });
+}
+
+// Gera um ponto de partida para um mês sem relatório: rendimento e categorias herdam a
+// estrutura do mês atual (categorias a 0€), mensalidades só entram se já existiam nesse mês
+// (campo `since`) — ex.: uma mensalidade com since="2026-07" não aparece em meses antes disso.
+function buildDefaultMonthData(mk) {
+    return {
+        month: mk,
+        income: incomeData.income || 0,
+        mensalidades: incomeData.mensalidades
+            .filter(m => !m.since || m.since <= mk)
+            .map(m => ({ ...m })),
+        categories: incomeData.categories.map(c => ({ ...c, amount: 0 })),
+    };
+}
+
+async function selectMonth(mk) {
+    if (mk === viewMonthKey) return;
+    const cur = monthKey();
+
+    if (mk === cur) {
+        viewData = incomeData;
+    } else {
+        try {
+            viewData = await fetch(`/api/reports/${mk}`).then(r => {
+                if (!r.ok) throw new Error('not found');
+                return r.json();
+            });
+        } catch {
+            viewData = buildDefaultMonthData(mk);
+        }
+    }
+
+    viewMonthKey = mk;
+    document.getElementById('income-salary').value = viewData.income || '';
+    renderMonthTabs();
+    renderAllGroups();
+    updateSummary();
+    updateChart();
+}
+
+// Grava o mês atualmente visto: no income.json se for o mês corrente, ou no relatório
+// desse mês caso contrário (cria o relatório na primeira gravação, se ainda não existir).
+async function saveViewData() {
+    if (viewMonthKey === monthKey()) {
+        return fetch('/api/data/income.json', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(incomeData, null, 2),
+        });
+    }
+    return fetch(`/api/reports/${viewMonthKey}`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(viewData, null, 2),
+    });
+}
+
+// ── Summary ────────────────────────────────────────────────────────────────
+function allItems() { return [...(viewData.mensalidades || []), ...(viewData.categories || [])]; }
+
+function getTotal() {
+    return allItems().reduce((s, c) => s + (c.amount || 0), 0);
+}
+
+function findCat(id) {
+    return (viewData.mensalidades || []).find(c => c.id === id) || (viewData.categories || []).find(c => c.id === id);
+}
+
+function deleteItem(id) {
+    viewData.mensalidades = (viewData.mensalidades || []).filter(c => c.id !== id);
+    viewData.categories   = (viewData.categories || []).filter(c => c.id !== id);
+}
+
+function updateSummary() {
+    const income    = viewData.income || 0;
+    const total     = getTotal();
+    const invested  = getInvestedForMonth(viewMonthKey);
+    const remaining = income - total; // Poupança = salário - alocado; investimentos fica à parte, não entra nesta conta
+    const allocPct  = income > 0 ? total    / income * 100 : 0;
+    const investPct = income > 0 ? invested / income * 100 : 0;
+    const remPct    = income > 0 ? Math.max(remaining, 0) / income * 100 : 0;
+
+    document.getElementById('stat-allocated').textContent     = fmt(total) + ' €';
+    document.getElementById('stat-allocated-pct').textContent = fmt(allocPct) + '%';
+
+    document.getElementById('stat-invest').textContent     = fmt(invested) + ' €';
+    document.getElementById('stat-invest-pct').textContent = fmt(investPct) + '%';
+
+    const remEl    = document.getElementById('stat-remaining');
+    const remPctEl = document.getElementById('stat-remaining-pct');
+    const exEl     = document.getElementById('stat-excess');
+
+    if (remaining >= 0) {
+        remEl.textContent     = fmt(remaining) + ' €';
+        remEl.className       = 'income-stat-value up';
+        remPctEl.textContent  = fmt(remPct) + '%';
+        exEl.textContent      = '—';
+        exEl.style.color      = 'var(--muted)';
+    } else {
+        remEl.textContent     = '0,00 €';
+        remEl.className       = 'income-stat-value';
+        remPctEl.textContent  = '0,0%';
+        exEl.textContent      = '−' + fmt(Math.abs(remaining)) + ' €';
+        exEl.style.color      = 'var(--negative)';
+    }
+
+    const totalExpenses = total + invested; // Alocado + Investimentos = tudo o que saiu nesse mês
+    const centerEl = document.getElementById('chart-center-total');
+    if (centerEl) centerEl.textContent = totalExpenses > 0 ? fmt(totalExpenses) + ' €' : '—';
+}
+
+// ── Rows ───────────────────────────────────────────────────────────────────
+function renderAllGroups() {
+    renderRows('mensalidades', 'mensalidades-rows');
+    renderRows('categories', 'income-rows');
+}
+
+function rowTemplate(cat, groupKey, income) {
+    const pct = income > 0 ? (cat.amount || 0) / income * 100 : 0;
+    return `
+    <div class="income-row" data-id="${cat.id}" data-group="${groupKey}" draggable="true">
+        <span class="income-row-drag" title="${t('inc.drag_reorder_title')}">⠿</span>
+        <div class="income-row-dot" style="background:${cat.color}" data-id="${cat.id}"></div>
+        <input class="income-row-name" type="text" value="${cat.name}" data-id="${cat.id}" spellcheck="false">
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <input class="income-row-eur" type="number" step="10" min="0"
+                   value="${cat.amount || 0}" data-id="${cat.id}">
+            <span class="income-row-sym">€</span>
+            <input class="income-row-pct-inp" type="number" step="0.5" min="0" max="100"
+                   value="${pct.toFixed(1)}" data-id="${cat.id}">
+            <span class="income-row-sym">%</span>
+        </div>
+        <button class="income-row-del" data-id="${cat.id}" title="${t('an.remove_row_title')}">✕</button>
+    </div>`;
+}
+
+function renderRows(groupKey, containerId) {
+    const income    = viewData.income || 0;
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const items = viewData[groupKey] || [];
+
+    if (!items.length) {
+        container.innerHTML = `<p class="income-group-empty">${groupKey === 'mensalidades' ? t('inc.no_mensalidades') : t('inc.no_categories')}</p>`;
+        return;
+    }
+
+    container.innerHTML = items.map(cat => rowTemplate(cat, groupKey, income)).join('');
+
+    container.querySelectorAll('.income-row[draggable]').forEach(row => {
+        row.addEventListener('dragstart', onRowDragStart);
+        row.addEventListener('dragend',   onRowDragEnd);
+    });
+
+    container.querySelectorAll('.income-row-dot').forEach(dot => {
+        dot.addEventListener('click', e => { e.stopPropagation(); openPicker(dot.dataset.id, dot); });
+    });
+
+    container.querySelectorAll('.income-row-name').forEach(inp => {
+        inp.addEventListener('input', () => {
+            const cat = findCat(inp.dataset.id);
+            if (cat) { cat.name = inp.value; scheduleSave(); updateChart(); }
+        });
+    });
+
+    container.querySelectorAll('.income-row-eur').forEach(inp => {
+        inp.addEventListener('input', () => {
+            const cat = findCat(inp.dataset.id);
+            if (!cat) return;
+            cat.amount = parseFloat(inp.value) || 0;
+            syncPct(inp.dataset.id, cat.amount);
+            scheduleSave(); updateSummary(); updateChart();
+        });
+    });
+
+    container.querySelectorAll('.income-row-pct-inp').forEach(inp => {
+        inp.addEventListener('input', () => {
+            const cat = findCat(inp.dataset.id);
+            const inc = viewData.income || 0;
+            if (!cat || inc <= 0) return;
+            cat.amount = Math.round((parseFloat(inp.value) || 0) * inc / 100 * 100) / 100;
+            syncEur(inp.dataset.id, cat.amount);
+            scheduleSave(); updateSummary(); updateChart();
+        });
+    });
+
+    container.querySelectorAll('.income-row-del').forEach(btn => {
+        btn.addEventListener('click', () => {
+            deleteItem(btn.dataset.id);
+            renderAllGroups(); updateSummary(); updateChart(); scheduleSave();
+        });
+    });
+}
+
+// ── Drag & drop: reordenar dentro do grupo ou mover entre Mensalidades/Categorias ──
+function bindGroupDragDrop(containerId, groupKey) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    container.addEventListener('dragover', e => {
+        if (!dragSrc) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        document.querySelectorAll('.income-row').forEach(r => r.classList.remove('drag-over'));
+        const row = e.target.closest('.income-row');
+        if (row) row.classList.add('drag-over');
+    });
+
+    container.addEventListener('drop', e => {
+        if (!dragSrc) return;
+        e.preventDefault();
+        const fromGroup = dragSrc.dataset.group;
+        const fromArr   = viewData[fromGroup];
+        const fromIdx   = fromArr.findIndex(c => c.id === dragSrc.dataset.id);
+        if (fromIdx < 0) return;
+        const [moved] = fromArr.splice(fromIdx, 1);
+
+        const toArr     = viewData[groupKey];
+        const targetRow = e.target.closest('.income-row');
+        const toIdx     = targetRow ? toArr.findIndex(c => c.id === targetRow.dataset.id) : -1;
+        toArr.splice(toIdx < 0 ? toArr.length : toIdx, 0, moved);
+
+        renderAllGroups();
+        updateSummary();
+        updateChart();
+        scheduleSave();
+    });
+}
+
+function onRowDragStart(e) {
+    dragSrc = this;
+    this.classList.add('drag-source');
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function onRowDragEnd() {
+    document.querySelectorAll('.income-row').forEach(r => {
+        r.classList.remove('drag-source', 'drag-over');
+    });
+    dragSrc = null;
+}
+
+function syncPct(id, amount) {
+    const inc = viewData.income || 0;
+    const inp = document.querySelector(`.income-row-pct-inp[data-id="${id}"]`);
+    if (inp && inc > 0) inp.value = (amount / inc * 100).toFixed(1);
+}
+
+function syncEur(id, amount) {
+    const inp = document.querySelector(`.income-row-eur[data-id="${id}"]`);
+    if (inp) inp.value = amount;
+}
+
+// ── Chart ──────────────────────────────────────────────────────────────────
+function buildChartData() {
+    const income   = viewData.income || 0;
+    const total    = getTotal();
+    const invested = getInvestedForMonth(viewMonthKey);
+    const cats     = allItems().filter(c => c.amount > 0);
+
+    const labels = cats.map(c => c.name);
+    const data   = cats.map(c => c.amount);
+    const colors = cats.map(c => c.color);
+
+    if (invested > 0) {
+        labels.push(t('inc.stat_investments'));
+        data.push(invested);
+        colors.push('#2dc653');
+    }
+
+    const unalloc = income - total - invested;
+    if (unalloc > 0) {
+        labels.push(t('inc.unallocated_label'));
+        data.push(unalloc);
+        colors.push('#1c1c1c');
+    }
+    return { labels, data, colors };
+}
+
+function initChart() {
+    const { labels, data, colors } = buildChartData();
+    chart = new Chart(document.getElementById('incomeChart').getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels,
+            datasets: [{
+                data,
+                backgroundColor: colors,
+                borderColor:     '#000',
+                borderWidth:     2,
+                hoverOffset:     7,
+            }]
+        },
+        options: {
+            responsive:          true,
+            maintainAspectRatio: true,
+            cutout:              '60%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(20,20,20,0.97)',
+                    titleColor:      '#fff',
+                    bodyColor:       '#ccc',
+                    borderColor:     '#333',
+                    borderWidth:     1,
+                    padding:         10,
+                    callbacks: {
+                        label: ctx => {
+                            const inc = viewData.income || 0;
+                            const val = ctx.parsed;
+                            const pct = inc > 0 ? (val / inc * 100).toFixed(1) : '—';
+                            return `  ${fmt(val)} €   ·   ${pct}%`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+    renderLegend();
+}
+
+function updateChart() {
+    if (!chart) return;
+    const { labels, data, colors } = buildChartData();
+    chart.data.labels                       = labels;
+    chart.data.datasets[0].data            = data;
+    chart.data.datasets[0].backgroundColor = colors;
+    chart.update();
+    renderLegend();
+}
+
+function renderLegend() {
+    const legend  = document.getElementById('income-legend');
+    if (!legend) return;
+    const income  = viewData.income || 0;
+    const { labels, data, colors } = buildChartData();
+    legend.innerHTML = labels.map((name, i) => {
+        const pct = income > 0 ? (data[i] / income * 100).toFixed(1) + '%' : '—';
+        return `
+        <div class="income-legend-row">
+            <div class="income-legend-dot" style="background:${colors[i]}"></div>
+            <span class="income-legend-name">${name}</span>
+            <span class="income-legend-pct">${pct}</span>
+        </div>`;
+    }).join('');
+}
+
+// ── Color picker ───────────────────────────────────────────────────────────
+function openPicker(targetId, anchor) {
+    const picker = document.getElementById('color-picker');
+    if (!picker) return;
+
+    if (!picker.classList.contains('hidden') && pickerTarget === targetId) {
+        picker.classList.add('hidden');
+        pickerTarget = null;
+        return;
+    }
+    pickerTarget = targetId;
+
+    picker.innerHTML = PALETTE.map(c =>
+        `<div class="income-swatch" style="background:${c}" data-color="${c}"></div>`
+    ).join('');
+
+    picker.querySelectorAll('.income-swatch').forEach(sw => {
+        sw.addEventListener('click', e => {
+            e.stopPropagation();
+            applyColor(targetId, sw.dataset.color);
+            picker.classList.add('hidden');
+            pickerTarget = null;
+        });
+    });
+
+    const rect = anchor.getBoundingClientRect();
+    picker.style.top  = (rect.bottom + 6) + 'px';
+    picker.style.left = rect.left + 'px';
+    picker.classList.remove('hidden');
+}
+
+function applyColor(targetId, color) {
+    if (targetId === 'add-mensalidade') {
+        addColorMens = color;
+        document.getElementById('add-mensalidade-color-dot').style.background = color;
+        return;
+    }
+    if (targetId === 'add-categoria') {
+        addColorCat = color;
+        document.getElementById('add-color-dot').style.background = color;
+        return;
+    }
+    const cat = findCat(targetId);
+    if (cat) {
+        cat.color = color;
+        const dot = document.querySelector(`.income-row-dot[data-id="${targetId}"]`);
+        if (dot) dot.style.background = color;
+        scheduleSave();
+        updateChart();
+    }
+}
+
+document.addEventListener('click', () => {
+    document.getElementById('color-picker')?.classList.add('hidden');
+    pickerTarget = null;
+    document.getElementById('year-list')?.classList.add('hidden');
+});
+
+// ── Add mensalidade ───────────────────────────────────────────────────────
+document.getElementById('add-mensalidade-color-dot').addEventListener('click', e => {
+    e.stopPropagation();
+    openPicker('add-mensalidade', document.getElementById('add-mensalidade-color-dot'));
+});
+
+function addMensalidade() {
+    const nameInp = document.getElementById('add-mensalidade-name-input');
+    const amtInp  = document.getElementById('add-mensalidade-amt-input');
+    const name    = nameInp.value.trim();
+    if (!name) { nameInp.focus(); return; }
+
+    viewData.mensalidades.push({
+        id:     uid(),
+        name,
+        color:  addColorMens,
+        amount: parseFloat(amtInp.value) || 0,
+        since:  viewMonthKey,
+    });
+
+    nameInp.value = '';
+    amtInp.value  = '';
+    renderAllGroups();
+    updateSummary();
+    updateChart();
+    scheduleSave();
+    nameInp.focus();
+}
+
+document.getElementById('add-mensalidade-btn').addEventListener('click', addMensalidade);
+document.getElementById('add-mensalidade-name-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('add-mensalidade-amt-input').focus();
+});
+document.getElementById('add-mensalidade-amt-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addMensalidade();
+});
+
+// ── Add categoria ─────────────────────────────────────────────────────────
+document.getElementById('add-color-dot').addEventListener('click', e => {
+    e.stopPropagation();
+    openPicker('add-categoria', document.getElementById('add-color-dot'));
+});
+
+function addCategory() {
+    const nameInp = document.getElementById('add-name-input');
+    const amtInp  = document.getElementById('add-amt-input');
+    const name    = nameInp.value.trim();
+    if (!name) { nameInp.focus(); return; }
+
+    viewData.categories.push({
+        id:     uid(),
+        name,
+        color:  addColorCat,
+        amount: parseFloat(amtInp.value) || 0,
+    });
+
+    nameInp.value = '';
+    amtInp.value  = '';
+    renderAllGroups();
+    updateSummary();
+    updateChart();
+    scheduleSave();
+    nameInp.focus();
+}
+
+document.getElementById('add-cat-btn').addEventListener('click', addCategory);
+document.getElementById('add-name-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('add-amt-input').focus();
+});
+document.getElementById('add-amt-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addCategory();
+});
+
+// ── Income input ───────────────────────────────────────────────────────────
+document.getElementById('income-salary').addEventListener('input', function () {
+    viewData.income = parseFloat(this.value) || 0;
+    // Re-sync all % inputs
+    const inc = viewData.income;
+    document.querySelectorAll('.income-row-pct-inp').forEach(inp => {
+        const cat = findCat(inp.dataset.id);
+        if (cat && inc > 0) inp.value = ((cat.amount || 0) / inc * 100).toFixed(1);
+        else if (inp) inp.value = '0.0';
+    });
+    updateSummary();
+    updateChart();
+    scheduleSave();
+});
+
+// ── Init ───────────────────────────────────────────────────────────────────
+(async () => {
+    await Promise.all([loadIncome(), loadTransactions()]);
+    stripYear  = currentYear();
+    stripStart = clampStripStart(addMonths(monthKey(), -3));
+    document.getElementById('income-salary').value = incomeData.income || '';
+    bindGroupDragDrop('mensalidades-rows', 'mensalidades');
+    bindGroupDragDrop('income-rows', 'categories');
+    renderMonthTabs();
+    renderAllGroups();
+    updateSummary();
+    initChart();
+})();
+</script>
+
+</body>
+</html>

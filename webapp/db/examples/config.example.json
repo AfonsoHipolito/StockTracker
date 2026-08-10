@@ -1,0 +1,13 @@
+{
+  "prices": {
+    "cacheTtlSec": 3600,
+    "freshTtlSec": 900
+  },
+  "user": {
+    "name": ""
+  },
+  "portfolio": {
+    "defaultCategories": [],
+    "showTotalBalance": true
+  }
+}

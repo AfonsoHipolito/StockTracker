@@ -1,0 +1,26 @@
+# ── Ambientes virtuais Python ────────────────────────────────────────────
+webapp/venv/
+**/__pycache__/
+*.pyc
+
+# ── Backups locais (contêm dados financeiros reais e chaves antigas) ────
+/backups/
+
+# ── Dados privados do utilizador ─────────────────────────────────────────
+# A base de dados e os ficheiros JSON legados guardam posições, transações,
+# rendimento, watchlist, alertas, planos, histórico e análises — são pessoais
+# e nunca devem ser publicados. A app cria a BD vazia automaticamente no
+# primeiro arranque (server.py); usa webapp/db/examples/ como modelo de
+# formato se precisares de dados de exemplo.
+webapp/db/*.json
+webapp/db/reports/*.json
+webapp/db/stocktracker.db
+
+# ── Config local de ferramentas de desenvolvimento ───────────────────────
+.claude/
+.agents/
+.codex/
+/deleted/
+
+# ── SO / editor ───────────────────────────────────────────────────────────
+.DS_Store

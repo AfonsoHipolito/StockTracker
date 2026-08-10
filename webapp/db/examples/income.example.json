@@ -1,0 +1,12 @@
+{
+  "income": 2000,
+  "month": "2026-01",
+  "mensalidades": [
+    { "id": "ex-mens-1", "name": "Renda", "color": "#3d9be9", "amount": 600 }
+  ],
+  "categories": [
+    { "id": "ex-cat-1", "name": "Alimentação", "color": "#00c096", "amount": 0 },
+    { "id": "ex-cat-2", "name": "Transportes", "color": "#f0a500", "amount": 0 },
+    { "id": "ex-cat-3", "name": "Lazer",       "color": "#c060ff", "amount": 0 }
+  ]
+}

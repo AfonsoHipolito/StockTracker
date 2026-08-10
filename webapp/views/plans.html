@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="plans.page_title">Planos — StockTracker</title>
+    <link rel="icon" type="image/x-icon" href="images/icon.png">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav id="navbar"></nav>
+
+<main class="plans-page">
+    <div class="plans-page-header">
+        <h1 class="plans-page-title" data-i18n="plans.title">Planos de Poupança</h1>
+        <button class="btn-primary" id="new-plan-btn" data-i18n="plans.new_plan_btn">+ Novo Plano</button>
+    </div>
+    <div id="plans-grid" class="plans-grid"></div>
+</main>
+
+<!-- ── Create / Edit modal ──────────────────────────────────── -->
+<div id="plan-modal" class="modal-overlay hidden">
+    <div class="modal-box plan-modal-box">
+        <div class="modal-header">
+            <span class="modal-title" id="plan-modal-title" data-i18n="plans.modal_title_new">Novo Plano</span>
+            <button class="modal-close" id="plan-modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+
+            <div class="plan-form-row">
+                <label class="plan-form-label" data-i18n="plans.field_name">Nome do plano</label>
+                <input class="plan-form-input" id="plan-name-input" type="text" placeholder="Ex: Plano Mensal ETFs">
+            </div>
+
+            <div class="plan-form-2col plan-form-row">
+                <div>
+                    <label class="plan-form-label" data-i18n="plans.field_amount">Montante (€)</label>
+                    <input class="plan-form-input" id="plan-amount-input" type="number" step="10" min="1" placeholder="500">
+                </div>
+                <div>
+                    <label class="plan-form-label" data-i18n="plans.field_frequency">Frequência</label>
+                    <select class="plan-form-input" id="plan-freq-select">
+                        <option value="week" data-i18n="plans.freq_week">Semanal</option>
+                        <option value="month" selected data-i18n="plans.freq_month">Mensal</option>
+                        <option value="quarter" data-i18n="plans.freq_quarter">Trimestral</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="plan-alloc-header">
+                <span class="plan-alloc-title" data-i18n="plans.alloc_title">Ativos e alocação</span>
+                <span id="plan-alloc-total" class="plan-alloc-total">0%</span>
+            </div>
+            <div id="plan-pick-list" class="plan-pick-list"></div>
+
+            <div class="modal-actions" style="margin-top:18px">
+                <button class="btn-secondary" id="plan-cancel" data-i18n="pf.cancel">Cancelar</button>
+                <button class="btn-primary"   id="plan-save" data-i18n="pf.save">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="i18n.js"></script>
+<script src="navbar.js"></script>
+<script>
+mountNavbar('plans');
+applyStaticTranslations();
+
+// ── State ──────────────────────────────────────────────────────────────────
+let plans      = [];
+let positions  = [];
+let planCharts = new Map();   // planId → Chart instance
+let editingId  = null;        // null = creating new
+
+const FREQ_LABEL = { week: t('plans.freq_week'), month: t('plans.freq_month'), quarter: t('plans.freq_quarter') };
+const posKey = p => p.isin;
+
+// ── Data I/O ───────────────────────────────────────────────────────────────
+async function loadData() {
+    [plans, positions] = await Promise.all([
+        fetch('/api/data/plans.json?_=' + Date.now()).then(r => r.json()).catch(() => []),
+        fetch('/api/data/positions.json?_=' + Date.now()).then(r => r.json()).catch(() => []),
+    ]);
+}
+
+async function savePlans() {
+    const resp = await fetch('/api/data/plans.json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(plans, null, 2),
+    });
+    if (!resp.ok) throw new Error(`Save failed: ${resp.status}`);
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function renderPlans() {
+    const grid = document.getElementById('plans-grid');
+    if (!grid) return;
+
+    // Destroy existing chart instances before clearing DOM
+    planCharts.forEach(c => c.destroy());
+    planCharts.clear();
+
+    const cards = plans.map(plan => {
+        const freqLabel = FREQ_LABEL[plan.frequency] || plan.frequency;
+        const chartId   = `plan-chart-${plan.id}`;
+        const assetRows = plan.assets.map(a => {
+            const amt = (plan.amount * a.allocation / 100).toFixed(2).replace('.', ',');
+            return `
+            <div class="plan-asset-row">
+                <div class="plan-asset-icon" style="background:${a.bg}">${(a.ticker||'').slice(0,4)}</div>
+                <div class="plan-asset-info">
+                    <span class="plan-asset-ticker">${a.ticker}</span>
+                    <span class="plan-asset-name">${a.name}</span>
+                </div>
+                <div class="plan-asset-alloc">
+                    <span class="plan-asset-pct">${a.allocation}%</span>
+                    <span class="plan-asset-amt dim">${amt} €</span>
+                </div>
+            </div>`;
+        }).join('');
+
+        return `
+        <div class="plan-card" data-id="${plan.id}">
+            <div class="plan-card-header">
+                <div>
+                    <div class="plan-card-name">${plan.name}</div>
+                    <div class="plan-card-meta">
+                        ${plan.amount.toFixed(2).replace('.', ',')} €
+                        <span class="plan-freq-badge">${freqLabel}</span>
+                    </div>
+                </div>
+                <div class="plan-card-btns">
+                    <button class="plan-card-btn edit" data-id="${plan.id}" title="${t('plans.edit_title')}">✎</button>
+                    <button class="plan-card-btn del"  data-id="${plan.id}" title="${t('an.delete_title')}">✕</button>
+                </div>
+            </div>
+            <div class="plan-card-body">
+                <div class="plan-assets-table">${assetRows}</div>
+                <div class="plan-chart-wrap">
+                    <canvas id="${chartId}" width="90" height="90"></canvas>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    const newCard = `
+    <div class="plan-card-new" id="grid-new-plan-btn">
+        <div class="plan-card-new-icon">+</div>
+        <div class="plan-card-new-label">${t('plans.new_plan_card_label')}</div>
+    </div>`;
+
+    grid.innerHTML = cards + newCard;
+
+    // Build Chart.js instances after DOM is ready
+    plans.forEach(plan => {
+        const canvas = document.getElementById(`plan-chart-${plan.id}`);
+        if (!canvas || !plan.assets.length) return;
+        const colors = plan.assets.map((_, i) =>
+            `hsl(${Math.round(i * 360 / plan.assets.length)}, 55%, 55%)`
+        );
+        const c = new Chart(canvas.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: plan.assets.map(a => a.ticker),
+                datasets: [{
+                    data: plan.assets.map(a => a.allocation),
+                    backgroundColor: colors,
+                    borderColor: '#0c0c0c',
+                    borderWidth: 2,
+                }]
+            },
+            options: {
+                responsive: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ` ${ctx.label}: ${ctx.parsed}%`,
+                        },
+                        backgroundColor: 'rgba(20,20,20,0.97)',
+                        titleColor: '#fff',
+                        bodyColor: '#ccc',
+                        borderColor: '#333',
+                        borderWidth: 1,
+                    },
+                },
+                cutout: '52%',
+            }
+        });
+        planCharts.set(plan.id, c);
+    });
+
+    // Events
+    grid.querySelectorAll('.plan-card-btn.edit').forEach(btn => {
+        btn.addEventListener('click', e => { e.stopPropagation(); openModal(btn.dataset.id); });
+    });
+    grid.querySelectorAll('.plan-card-btn.del').forEach(btn => {
+        btn.addEventListener('click', e => { e.stopPropagation(); deletePlan(btn.dataset.id); });
+    });
+    document.getElementById('grid-new-plan-btn')?.addEventListener('click', () => openModal(null));
+}
+
+// ── Delete ─────────────────────────────────────────────────────────────────
+async function deletePlan(id) {
+    if (!confirm(t('plans.confirm_delete'))) return;
+    plans = plans.filter(p => p.id !== id);
+    await savePlans().catch(console.error);
+    renderPlans();
+}
+
+// ── Modal ──────────────────────────────────────────────────────────────────
+function openModal(planId) {
+    editingId = planId || null;
+    const plan = planId ? plans.find(p => p.id === planId) : null;
+
+    document.getElementById('plan-modal-title').textContent = plan ? t('plans.modal_title_edit') : t('plans.modal_title_new');
+    document.getElementById('plan-name-input').value   = plan?.name   || '';
+    document.getElementById('plan-amount-input').value = plan?.amount || '';
+    document.getElementById('plan-freq-select').value  = plan?.frequency || 'month';
+    document.getElementById('plan-name-input').classList.remove('error');
+    document.getElementById('plan-amount-input').classList.remove('error');
+
+    buildPickList(plan?.assets || []);
+    updateAllocTotal();
+    document.getElementById('plan-modal').classList.remove('hidden');
+    document.getElementById('plan-name-input').focus();
+}
+
+function closeModal() {
+    document.getElementById('plan-modal').classList.add('hidden');
+    editingId = null;
+}
+
+function buildPickList(existingAssets) {
+    const eligible = positions.filter(p => !['realestate','bonds','juros'].includes(p.type));
+    const list = document.getElementById('plan-pick-list');
+
+    list.innerHTML = eligible.map(p => {
+        const abbr     = (p.ticker||'').slice(0, 4);
+        const key      = posKey(p);
+        const existing = existingAssets.find(a => a.positionIsin === key);
+        const checked  = !!existing;
+        const pct      = existing?.allocation || '';
+        return `
+        <div class="plan-pick-row">
+            <input type="checkbox" class="plan-pick-cb" data-id="${key}" ${checked ? 'checked' : ''}>
+            <div class="plan-pick-icon" style="background:${p.bg||'#1a1a2a'}">${abbr}</div>
+            <div class="plan-pick-info">
+                <span class="plan-pick-ticker">${p.ticker}</span>
+                <span class="plan-pick-name">${p.name}</span>
+            </div>
+            <div class="plan-pct-wrap ${checked ? '' : 'hidden'}">
+                <input type="number" class="plan-pct-input" data-id="${key}"
+                       min="0" max="100" step="5" placeholder="0" value="${pct}">
+                <span class="plan-pct-symbol">%</span>
+            </div>
+        </div>`;
+    }).join('') || `<p class="dim" style="padding:12px;font-size:13px">${t('plans.no_eligible_assets')}</p>`;
+
+    list.querySelectorAll('.plan-pick-cb').forEach(cb => {
+        cb.addEventListener('change', () => {
+            const row    = cb.closest('.plan-pick-row');
+            const pctWrap = row.querySelector('.plan-pct-wrap');
+            pctWrap.classList.toggle('hidden', !cb.checked);
+            if (cb.checked) row.querySelector('.plan-pct-input').focus();
+            updateAllocTotal();
+        });
+    });
+
+    list.querySelectorAll('.plan-pct-input').forEach(inp => {
+        inp.addEventListener('input', updateAllocTotal);
+    });
+}
+
+function updateAllocTotal() {
+    const list   = document.getElementById('plan-pick-list');
+    const checks = list.querySelectorAll('.plan-pick-cb:checked');
+    let total    = 0;
+    checks.forEach(cb => {
+        const inp = list.querySelector(`.plan-pct-input[data-id="${cb.dataset.id}"]`);
+        total += parseFloat(inp?.value || 0) || 0;
+    });
+    total = Math.round(total * 10) / 10;
+    const el = document.getElementById('plan-alloc-total');
+    el.textContent = `${total}%`;
+    el.className   = `plan-alloc-total ${total === 100 ? 'ok' : total > 100 ? 'over' : ''}`;
+}
+
+async function savePlanFromModal() {
+    const nameInput   = document.getElementById('plan-name-input');
+    const amountInput = document.getElementById('plan-amount-input');
+    const name   = nameInput.value.trim();
+    const amount = parseFloat(amountInput.value);
+    const freq   = document.getElementById('plan-freq-select').value;
+
+    let valid = true;
+    nameInput.classList.toggle('error', !name);
+    amountInput.classList.toggle('error', !(amount > 0));
+    if (!name || !(amount > 0)) valid = false;
+
+    // Collect selected assets
+    const list   = document.getElementById('plan-pick-list');
+    const checks = list.querySelectorAll('.plan-pick-cb:checked');
+    if (!checks.length) { valid = false; }
+
+    const assets = [];
+    let allocTotal = 0;
+    checks.forEach(cb => {
+        const pid = cb.dataset.id;
+        const inp = list.querySelector(`.plan-pct-input[data-id="${pid}"]`);
+        const pct = parseFloat(inp?.value || 0) || 0;
+        allocTotal += pct;
+        const pos = positions.find(p => posKey(p) === pid);
+        if (pos) assets.push({
+            positionIsin: pid,
+            name:       pos.name,
+            ticker:     pos.ticker,
+            bg:         pos.bg || '#1a1a2a',
+            allocation: pct,
+        });
+    });
+    allocTotal = Math.round(allocTotal * 10) / 10;
+    if (allocTotal !== 100 || !assets.length) valid = false;
+
+    if (!valid) {
+        const allocEl = document.getElementById('plan-alloc-total');
+        allocEl.classList.add('over');
+        setTimeout(() => updateAllocTotal(), 1500);
+        return;
+    }
+
+    const btn = document.getElementById('plan-save');
+    btn.textContent = t('pf.saving');
+    btn.disabled    = true;
+
+    if (editingId) {
+        const idx = plans.findIndex(p => p.id === editingId);
+        if (idx >= 0) plans[idx] = { ...plans[idx], name, amount, frequency: freq, assets };
+    } else {
+        plans.push({ id: 'plan-' + Date.now(), name, amount, frequency: freq, assets, createdAt: new Date().toISOString() });
+    }
+
+    try {
+        await savePlans();
+        closeModal();
+        renderPlans();
+    } catch (err) {
+        console.error(err);
+        if (editingId) { /* keep edit */ } else plans.pop();
+        btn.textContent = t('plans.save_error');
+        setTimeout(() => { btn.textContent = t('pf.save'); btn.disabled = false; }, 3000);
+        return;
+    }
+
+    btn.textContent = t('pf.save');
+    btn.disabled    = false;
+}
+
+// ── Modal events ───────────────────────────────────────────────────────────
+document.getElementById('new-plan-btn').addEventListener('click', () => openModal(null));
+document.getElementById('plan-modal-close').addEventListener('click', closeModal);
+document.getElementById('plan-cancel').addEventListener('click', closeModal);
+document.getElementById('plan-modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeModal();
+});
+document.getElementById('plan-save').addEventListener('click', savePlanFromModal);
+document.getElementById('plan-name-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('plan-amount-input').focus();
+});
+
+// ── Init ───────────────────────────────────────────────────────────────────
+(async () => {
+    await loadData();
+    renderPlans();
+})();
+</script>
+
+</body>
+</html>

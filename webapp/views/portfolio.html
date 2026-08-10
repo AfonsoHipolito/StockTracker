@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="pf.page_title">Carteira — StockTracker</title>
+    <link rel="icon" type="image/x-icon" href="images/icon.png">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav id="navbar"></nav>
+
+<!-- ── Barra de tabs ──────────────────────────────────────── -->
+<div class="port-tabs-bar">
+    <button class="port-tab active" data-tab="ativos" data-i18n="pf.tab_assets">Ativos</button>
+    <button class="port-tab" data-tab="posicoes" data-i18n="pf.tab_positions">Posições</button>
+    <span id="price-status" class="price-status idle" data-i18n-title="pf.price_status_title" title="Clica para atualizar todos os preços">0 ativos atualizados</span>
+    <button class="edit-open-btn" id="open-edit">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span data-i18n="pf.edit_btn">Editar</span>
+    </button>
+</div>
+
+<!-- ── Split 50/50 ────────────────────────────────────────── -->
+<div class="port-split">
+
+    <div class="port-left">
+        <div class="chart-wrap">
+            <canvas id="portfolioChart"></canvas>
+            <div class="chart-center">
+                <span class="chart-center-label" id="chart-label" data-i18n="pf.chart_by_category">Por categoria</span>
+                <span class="chart-center-value" id="chart-total">—</span>
+                <span class="chart-center-pnl" id="chart-pnl"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="port-right">
+
+        <!-- Vista: Posições -->
+        <div id="view-posicoes" class="hidden">
+            <section class="perf-section">
+                <h2 class="perf-title">
+                    <a href="performance.html" class="perf-title-link"><span data-i18n="pf.performance_link">Desempenho</span> <span class="tab-arrow">›</span></a>
+                </h2>
+                <p class="perf-text" id="perf-text" data-i18n="pf.loading">A carregar…</p>
+            </section>
+            <section class="positions-section">
+                <div class="positions-header">
+                    <button class="positions-sort-label" id="sort-key-btn" data-i18n-title="pf.sort_key_title" title="Mudar critério de ordenação">
+                        <span id="sort-key-text">Ativo (ordenado por valor total)</span>
+                        <span class="sort-chevron">▾</span>
+                    </button>
+                    <button class="sort-dir-btn" id="sort-dir" data-i18n-title="pf.sort_dir_title" title="Inverter ordem">&#8593;</button>
+                </div>
+                <div id="pos-filter-pills" class="pos-filter-pills"></div>
+                <ul class="positions-list" id="positions-list"></ul>
+            </section>
+        </div>
+
+        <!-- Vista: Ativos -->
+        <div id="view-ativos">
+            <div class="ativos-list" id="ativos-list"></div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ── Backdrop ──────────────────────────────────────────── -->
+<div class="edit-backdrop" id="edit-backdrop"></div>
+
+<!-- ── Drawer: editar carteira ───────────────────────────── -->
+<aside class="edit-drawer" id="edit-drawer">
+
+    <div class="edit-drawer-header">
+        <span class="edit-drawer-title" data-i18n="pf.drawer_title">Editar Carteira</span>
+        <button class="edit-close-btn" id="edit-close">✕</button>
+    </div>
+
+    <div class="edit-drawer-body" id="edit-drawer-body">
+
+        <!-- Formulário: nova posição -->
+        <div class="add-form hidden" id="add-form">
+            <p class="add-form-title" data-i18n="pf.add_form_title">Nova Posição</p>
+            <div class="add-form-grid">
+                <label class="edit-label add-full"><span data-i18n="pf.field_name">Nome</span>
+                    <input class="edit-input" id="add-name" type="text" placeholder="Ex: FTSE All-World">
+                </label>
+                <label class="edit-label"><span data-i18n="pf.field_ticker">Ticker</span>
+                    <input class="edit-input" id="add-ticker" type="text" placeholder="Ex: VWCE">
+                </label>
+                <label class="edit-label"><span data-i18n="pf.field_type">Tipo</span>
+                    <select class="edit-input edit-type-sel" id="add-type">
+                        <option value="stock" data-i18n="pf.opt_stock">Ação</option>
+                        <option value="etf" data-i18n="pf.opt_etf">ETF</option>
+                        <option value="crypto" data-i18n="pf.opt_crypto">Crypto</option>
+                        <option value="commodity" data-i18n="pf.opt_commodity">Commodity</option>
+                        <option value="realestate" data-i18n="pf.opt_realestate">Real Estate</option>
+                        <option value="bonds" data-i18n="pf.opt_bonds">Bonds</option>
+                    </select>
+                </label>
+                <!-- Campos standard -->
+                <div id="add-regular-fields">
+                    <label class="edit-label"><span data-i18n="pf.field_currency">Moeda</span>
+                        <select class="edit-input edit-type-sel" id="add-currency">
+                            <option value="EUR">EUR €</option>
+                            <option value="USD">USD $</option>
+                        </select>
+                    </label>
+                    <label class="edit-label"><span data-i18n="pf.field_units">Unidades</span>
+                        <input class="edit-input" id="add-units" type="number" step="any" min="0" placeholder="0">
+                    </label>
+                    <label class="edit-label"><span data-i18n="pf.field_avg_price">Preço médio (€)</span>
+                        <input class="edit-input" id="add-avg" type="number" step="0.01" min="0" placeholder="0,00">
+                    </label>
+                    <label class="edit-label"><span data-i18n="pf.field_cur_price">Preço atual (€)</span>
+                        <input class="edit-input" id="add-cur" type="number" step="0.01" min="0" placeholder="0,00">
+                    </label>
+                    <label class="edit-label add-full"><span data-i18n="pf.field_isin">ISIN</span>
+                        <input class="edit-input" id="add-isin" type="text" placeholder="Ex: IE00B3RBWM25">
+                    </label>
+                    <label class="edit-label"><span data-i18n="pf.field_yfsymbol">Símbolo Yahoo Finance</span>
+                        <input class="edit-input" id="add-yfsymbol" type="text" placeholder="Ex: VWCE.DE ou BTC-EUR">
+                    </label>
+                    <label class="edit-label"><span data-i18n="pf.field_price_currency">Moeda do preço (Yahoo Finance)</span>
+                        <select class="edit-input edit-type-sel" id="add-price-currency">
+                            <option value="EUR">EUR</option>
+                            <option value="USD">USD</option>
+                        </select>
+                    </label>
+                </div>
+                <!-- Campos imobiliário -->
+                <div id="add-realestate-fields" class="hidden">
+                    <label class="edit-label add-full"><span data-i18n="pf.field_invested">Montante investido (€)</span>
+                        <input class="edit-input" id="add-invested" type="number" step="0.01" min="0" placeholder="500">
+                    </label>
+                    <label class="edit-label"><span data-i18n="pf.field_annual_return">Retorno anual (%)</span>
+                        <input class="edit-input" id="add-annual-return" type="number" step="0.1" min="0" placeholder="11.5">
+                    </label>
+                    <label class="edit-label"><span data-i18n="pf.field_start_date">Data de entrada</span>
+                        <input class="edit-input" id="add-start-date" type="date">
+                    </label>
+                    <label class="edit-label add-full edit-reinvest-label" style="flex-direction:row;gap:8px;align-items:center">
+                        <input type="checkbox" id="add-finalizado"> <span data-i18n="pf.field_finalizado">Investimento finalizado (lucro recebido)</span>
+                    </label>
+                </div>
+                <label class="edit-label add-full edit-reinvest-label">
+                    <input type="checkbox" id="add-reinvest"> <span data-i18n="pf.field_reinvest">Reinvestir dividendos</span>
+                </label>
+            </div>
+            <div class="add-form-actions">
+                <button class="btn-secondary" id="add-cancel" data-i18n="pf.cancel">Cancelar</button>
+                <button class="btn-primary"   id="add-confirm" data-i18n="pf.add_confirm">Adicionar</button>
+            </div>
+        </div>
+
+        <!-- Linhas de posições existentes -->
+        <div id="edit-rows"></div>
+
+    </div>
+
+    <div class="edit-drawer-footer">
+        <button class="btn-add" id="show-add-form" data-i18n="pf.new_position_btn">+ Nova Posição</button>
+        <div style="display:flex;gap:10px">
+            <button class="btn-secondary" id="edit-cancel" data-i18n="pf.cancel">Cancelar</button>
+            <button class="btn-primary"   id="edit-save" data-i18n="pf.save">Guardar</button>
+        </div>
+    </div>
+
+</aside>
+
+<!-- ── Scripts ───────────────────────────────────────────── -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="i18n.js"></script>
+<script src="navbar.js"></script>
+<script>
+mountNavbar('portfolio');
+applyStaticTranslations();
+
+// ── Pesquisa local (portfolio) ────────────────────────────────────────────
+(function initPortfolioSearch() {
+    const input = document.getElementById('nav-search-input');
+    const drop  = document.getElementById('search-dropdown');
+    if (!input || !drop) return;
+
+    input.placeholder = t('pf.search_placeholder');
+
+    let highlightedEl = null;
+
+    function clearHighlight() {
+        if (highlightedEl) {
+            highlightedEl.classList.remove('pos-search-highlight');
+            highlightedEl = null;
+        }
+    }
+
+    function showResults(q) {
+        drop.innerHTML = '';
+        if (!q) { drop.classList.add('hidden'); clearHighlight(); return; }
+
+        const hits = positions.filter(p =>
+            p.name.toLowerCase().includes(q) ||
+            (p.ticker || '').toLowerCase().includes(q) ||
+            (posKey(p) || '').toLowerCase().includes(q)
+        );
+
+        if (!hits.length) {
+            drop.innerHTML = `<div class="search-loading">${t('pf.no_results')}</div>`;
+            drop.classList.remove('hidden');
+            return;
+        }
+
+        drop.innerHTML = hits.slice(0, 6).map(p => `
+            <div class="search-result search-result-local" data-id="${posKey(p)}">
+                <div class="search-result-info">
+                    <span class="search-result-ticker">${p.ticker || posKey(p)}</span>
+                    <span class="search-result-name">${p.name}</span>
+                </div>
+            </div>
+        `).join('');
+        drop.classList.remove('hidden');
+
+        drop.querySelectorAll('.search-result-local').forEach(row => {
+            row.addEventListener('click', () => {
+                const id = row.dataset.id;
+                drop.classList.add('hidden');
+                input.value = '';
+                clearHighlight();
+
+                // Ensure the right tab/view is active — look in both views
+                const allItems = document.querySelectorAll('.position-item[data-id]');
+                let target = null;
+                allItems.forEach(el => { if (el.dataset.id === id) target = el; });
+
+                if (!target) return;
+
+                // If inside a collapsed category, expand it
+                const catList = target.closest('.positions-list');
+                if (catList && catList.classList.contains('hidden')) {
+                    const header = catList.previousElementSibling;
+                    header?.click();
+                }
+
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                target.classList.add('pos-search-highlight');
+                highlightedEl = target;
+                setTimeout(clearHighlight, 2000);
+            });
+        });
+    }
+
+    let debounce;
+    input.addEventListener('input', () => {
+        clearTimeout(debounce);
+        debounce = setTimeout(() => showResults(input.value.trim().toLowerCase()), 200);
+    });
+
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { drop.classList.add('hidden'); input.value = ''; clearHighlight(); }
+    });
+
+    document.addEventListener('click', e => {
+        if (!document.getElementById('nav-search-wrap')?.contains(e.target)) {
+            drop.classList.add('hidden');
+        }
+    });
+})();
+
+// ── Tipos de ativo ────────────────────────────────────────────────────────
+const TYPES = {
+    etf:        { label: t('type.etf'),        color: '#3d9be9' },
+    stock:      { label: t('type.stock'),      color: '#00c096' },
+    commodity:  { label: t('type.commodity'),  color: '#f0a500' },
+    crypto:     { label: t('type.crypto'),     color: '#ff9999' },
+    realestate: { label: t('type.realestate'), color: '#c060ff' },
+    bonds:      { label: t('type.bonds'),      color: '#5c8bd6' },
+};
+const TYPE_ORDER = ['stock', 'etf', 'crypto', 'commodity', 'realestate', 'bonds'];
+const TYPE_BG    = { etf: '#0d2035', stock: '#2a1a08', commodity: '#2a1e00', crypto: '#2a0a0d', realestate: '#1a0a2a', bonds: '#0a2020' };
+
+// ── Estado ────────────────────────────────────────────────────────────────
+let positions          = [];
+let activeTab          = 'ativos';
+let sortAsc            = true;
+let sortKey             = 'total'; // 'total' | 'pnl' | 'pnlPct'
+const SORT_KEYS         = ['total', 'pnl', 'pnlPct'];
+const SORT_LABELS       = { total: t('pf.sort_total'), pnl: t('pf.sort_pnl'), pnlPct: t('pf.sort_pnl_pct') };
+let chart              = null;
+let chartItems         = [];
+let hiddenTypes        = new Set();
+let expandedPositionId = null;
+let positionTypeFilter = null;
+let showTotalBalance   = true;
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+const fmtEur = v => v.toFixed(2).replace('.', ',') + ' €';
+const fmtPct = v => v.toFixed(2).replace('.', ',') + ' %';
+const posKey = p => p.isin;
+
+function computePosition(p) {
+    if (['realestate', 'bonds'].includes(p.type)) {
+        let months = p.investmentMonths || 0;
+        if (p.startDate) {
+            const ms = new Date() - new Date(p.startDate);
+            months = ms / (1000 * 60 * 60 * 24 * 30.44);
+        }
+        if (p.finalizado) {
+            p.total  = p.investedAmount * (1 + p.annualReturn / 100 * months / 12);
+            p.pnl    = p.total - p.investedAmount;
+            p.pnlPct = p.annualReturn * months / 12;
+        } else {
+            p.total  = p.investedAmount;
+            p.pnl    = 0;
+            p.pnlPct = 0;
+        }
+        p.cost = p.investedAmount;
+    } else {
+        p.total  = p.units * p.currentPrice;
+        p.cost   = p.units * p.avgBuyPrice;
+        p.pnl    = (p.currentPrice - p.avgBuyPrice) * p.units;
+        p.pnlPct = (p.currentPrice / p.avgBuyPrice - 1) * 100;
+    }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+async function init() {
+    try {
+        positions = await fetch('/api/data/positions.json').then(r => r.json());
+    } catch {
+        document.getElementById('perf-text').textContent = t('pf.load_error');
+        return;
+    }
+
+    try {
+        const config = await fetch('/api/data/config.json').then(r => r.json());
+        const portfolioCfg = config.portfolio || {};
+        showTotalBalance = portfolioCfg.showTotalBalance !== false;
+        const defaultCategories = portfolioCfg.defaultCategories || [];
+        if (defaultCategories.length) {
+            hiddenTypes = new Set(TYPE_ORDER.filter(t => !defaultCategories.includes(t)));
+        }
+    } catch { /* usa defaults: tudo visível */ }
+
+    positions.forEach(computePosition);
+    renderPerformance();
+    renderPositionsList();
+    renderAtivosList();
+    initChart();
+    initPriceRefreshControls();
+    applyCachedPricesFromLocal();
+    initPositionClickDelegation();
+    initPositionFilter();
+}
+
+// ── Desempenho ────────────────────────────────────────────────────────────
+function renderPerformance() {
+    const totalValue = positions.reduce((s, p) => s + p.total, 0);
+    const totalPnL   = positions.reduce((s, p) => s + p.pnl,   0);
+    const costBasis  = totalValue - totalPnL;
+    const pnlPct     = costBasis > 0 ? totalPnL / costBasis * 100 : 0;
+
+    updateChartCenter();
+
+    const verb = totalPnL >= 0 ? t('pf.perf_verb_up') : t('pf.perf_verb_down');
+    const cls  = totalPnL >= 0 ? 'up' : 'down';
+    const tipo = totalPnL >= 0 ? t('pf.perf_tipo_profit') : t('pf.perf_tipo_loss');
+    const pctHTML   = `<span class="${cls}">${fmtPct(Math.abs(pnlPct))}</span>`;
+    const valueHTML = `<span class="${cls}">${fmtEur(Math.abs(totalPnL))}</span>`;
+    document.getElementById('perf-text').innerHTML = t('pf.perf_sentence', { verb, pct: pctHTML, tipo, value: valueHTML });
+}
+
+// ── Lista de posições ─────────────────────────────────────────────────────
+function comparePositions(a, b) {
+    return sortAsc ? a[sortKey] - b[sortKey] : b[sortKey] - a[sortKey];
+}
+
+function renderPositionsList() {
+    const filtered = positionTypeFilter ? positions.filter(p => p.type === positionTypeFilter) : positions;
+    const sorted   = [...filtered].sort(comparePositions);
+    const groupTotal = positionTypeFilter ? filtered.reduce((s, p) => s + p.total, 0) : null;
+    document.getElementById('positions-list').innerHTML = sorted.map(p => positionRow(p, groupTotal)).join('');
+    bindListHoverToChart();
+    if (expandedPositionId) insertPositionDetail(expandedPositionId);
+}
+
+function positionRow(p, groupTotal = null) {
+    const cls    = p.pnl >= 0 ? 'up' : 'down';
+    const arrow  = p.pnl >= 0 ? '▲' : '▼';
+    const sign   = p.pnl >= 0 ? '+' : '−';
+    const abbr   = p.ticker.slice(0, 6);
+    const pnlEur = Math.abs(p.pnl).toFixed(2).replace('.', ',');
+    const pnlPct = Math.abs(p.pnlPct).toFixed(2).replace('.', ',');
+    const dot    = priceDot(p);
+
+    if (['realestate', 'bonds'].includes(p.type)) {
+        const perYear = t('pf.per_year_abbr');
+        const statusLabel = p.finalizado ? `${p.annualReturn}% ${perYear}` : `${p.annualReturn}% ${perYear} · ${t('pf.pending')}`;
+        const dateLabel   = p.startDate  ? t('pf.since_date', { date: new Date(p.startDate).toLocaleDateString('pt-PT') }) + ' ' : '';
+        return `
+        <li class="position-item" data-id="${posKey(p)}" data-name="${p.name.toLowerCase()}" data-ticker="${(p.ticker||'').toLowerCase()}">
+            ${dot}
+            <div class="pos-icon" style="background:${p.bg}">${abbr}</div>
+            <div class="pos-info">
+                <span class="pos-name">${p.name}</span>
+                <span class="pos-units dim">${fmtEur(p.investedAmount)} · ${dateLabel}${statusLabel}</span>
+            </div>
+            <div class="pos-pnl-group">
+                <span class="pos-pnl ${cls}">${p.finalizado ? arrow + '&nbsp;' + sign + pnlEur + ' &euro;' : '—'}</span>
+                <span class="pos-pnl-pct ${cls}">${p.finalizado ? sign + pnlPct + ' %' : ''}</span>
+            </div>
+        </li>`;
+    }
+
+    const ricon = p.reinvest ? `<span class="reinvest-ico" title="${t('pf.reinvest_title')}">↺</span>` : '';
+    const ustr  = p.units.toString().replace('.', ',');
+    return `
+    <li class="position-item" data-id="${posKey(p)}" data-name="${p.name.toLowerCase()}" data-ticker="${(p.ticker||'').toLowerCase()}">
+        ${dot}
+        <div class="pos-icon" style="background:${p.bg}">${abbr}</div>
+        <div class="pos-info">
+            <span class="pos-name">${p.name}</span>
+            <span class="pos-units dim">&times;${ustr}&nbsp;&nbsp;${fmtEur(p.total)} ${ricon}</span>
+        </div>
+        <div class="pos-pnl-group">
+            <span class="pos-pnl ${cls}">${arrow}&nbsp;${sign}${pnlEur} &euro;</span>
+            <span class="pos-pnl-pct ${cls}">${sign}${pnlPct} %</span>
+        </div>
+    </li>`;
+}
+
+document.getElementById('sort-dir').addEventListener('click', function () {
+    sortAsc = !sortAsc;
+    this.innerHTML = sortAsc ? '&#8593;' : '&#8595;';
+    renderPositionsList();
+    renderAtivosList();
+});
+
+function updateSortKeyText() {
+    document.getElementById('sort-key-text').textContent = t('pf.sort_label', { crit: SORT_LABELS[sortKey] });
+}
+updateSortKeyText();
+
+document.getElementById('sort-key-btn').addEventListener('click', function () {
+    sortKey = SORT_KEYS[(SORT_KEYS.indexOf(sortKey) + 1) % SORT_KEYS.length];
+    updateSortKeyText();
+    renderPositionsList();
+    renderAtivosList();
+});
+
+// ── Lista de Ativos ───────────────────────────────────────────────────────
+function renderAtivosList() {
+    const html = TYPE_ORDER.map(type => {
+        const cfg      = TYPES[type];
+        const items    = positions.filter(p => p.type === type);
+        if (!items.length) return '';
+        const collapsed = hiddenTypes.has(type);
+        const total    = items.reduce((s, p) => s + p.total, 0);
+        const totalPnl = items.reduce((s, p) => s + p.pnl,   0);
+        const cost     = total - totalPnl;
+        const pnlPct   = cost > 0 ? totalPnl / cost * 100 : 0;
+        const count    = items.length;
+        const pnlCls   = totalPnl >= 0 ? 'up' : 'down';
+        const pnlSign  = totalPnl >= 0 ? '+' : '−';
+        const pnlArrow = totalPnl >= 0 ? '▲' : '▼';
+        return `
+        <div class="ativos-category" data-type="${type}">
+            <div class="ativos-cat-header${collapsed ? ' cat-collapsed' : ''}">
+                <span class="ativos-cat-dot" style="background:${cfg.color};opacity:${collapsed ? 0.4 : 1}"></span>
+                <span class="ativos-cat-name">${cfg.label}</span>
+                <span class="ativos-cat-meta">${count} ${count !== 1 ? t('pf.assets_word') : t('pf.asset_word')} &middot; ${fmtEur(total)}</span>
+                <span class="ativos-cat-pnl ${pnlCls}">${pnlArrow} ${pnlSign}${fmtEur(Math.abs(totalPnl))} &middot; ${pnlSign}${fmtPct(Math.abs(pnlPct))}</span>
+                <span class="ativos-cat-chevron">${collapsed ? '▸' : '▾'}</span>
+            </div>
+            <ul class="positions-list${collapsed ? ' hidden' : ''}">${items.sort(comparePositions).map(positionRow).join('')}</ul>
+        </div>`;
+    }).join('');
+    document.getElementById('ativos-list').innerHTML = html || `<p class="empty">${t('pf.no_assets')}</p>`;
+    bindListHoverToChart();
+    if (expandedPositionId) insertPositionDetail(expandedPositionId);
+}
+
+document.getElementById('ativos-list').addEventListener('click', function (e) {
+    const header = e.target.closest('.ativos-cat-header');
+    if (!header) return;
+    const type = header.closest('.ativos-category').dataset.type;
+    if (hiddenTypes.has(type)) hiddenTypes.delete(type);
+    else hiddenTypes.add(type);
+    renderAtivosList();
+    if (chart) updateChart('ativos');
+});
+
+// ── Atualização manual de preços (Yahoo Finance via servidor) ────────────────
+const LS_KEY = 'st_price_cache_v5';
+const LS_TTL = 15 * 60 * 1000; // cache visual/local: 15 min
+let priceRefreshTimer = null;
+const refreshingIds = new Set();
+
+function canRefreshPrice(p) {
+    return !!(p?.isin && p?.yfSymbol && !['realestate', 'bonds'].includes(p.type));
+}
+
+function yfDisplay(p) {
+    return p?.yfSymbol || '';
+}
+
+function priceDot(p) {
+    const key = posKey(p);
+    const canRefresh = canRefreshPrice(p);
+    const loading = refreshingIds.has(key);
+    const cls = [
+        'price-dot',
+        p.live ? 'fresh' : 'stale',
+        loading ? 'loading' : '',
+        canRefresh ? '' : 'disabled',
+    ].filter(Boolean).join(' ');
+    const title = canRefresh
+        ? (p.live ? t('pf.price_fresh_title') : t('pf.price_refresh_title'))
+        : t('pf.price_no_symbol_title');
+    return `<button type="button" class="${cls}" data-refresh-id="${key || ''}" title="${title}" ${canRefresh ? '' : 'disabled'}></button>`;
+}
+
+function refreshStatusText() {
+    const total = positions.filter(canRefreshPrice).length;
+    const fresh = positions.filter(p => canRefreshPrice(p) && p.live).length;
+    setPriceStatus('idle', t('pf.assets_updated', { fresh, total }));
+}
+
+function setPriceStatus(state, text) {
+    const el = document.getElementById('price-status');
+    el.className = `price-status ${state}`;
+    el.textContent = text;
+}
+
+function lsGetCache() {
+    try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (!raw) return null;
+        const { ts, data } = JSON.parse(raw);
+        const ageMs = Date.now() - ts;
+        if (ageMs < LS_TTL) {
+            if (data?._price_ages) {
+                const extraAge = Math.floor(ageMs / 1000);
+                data._price_ages = Object.fromEntries(
+                    Object.entries(data._price_ages).map(([key, age]) => [key, age + extraAge])
+                );
+            }
+            return data;
+        }
+    } catch { /* ignore */ }
+    return null;
+}
+
+function lsSetCache(data) {
+    try { localStorage.setItem(LS_KEY, JSON.stringify({ ts: Date.now(), data })); } catch { /* ignore */ }
+}
+
+function mergeLocalPriceCache(data) {
+    const current = lsGetCache() || { positions: {}, _price_ages: {}, _price_fresh_ttl_sec: 900 };
+    lsSetCache({
+        positions: { ...(current.positions || {}), ...(data.positions || {}) },
+        _price_ages: { ...(current._price_ages || {}), ...(data._price_ages || {}) },
+        _price_fresh_ttl_sec: data._price_fresh_ttl_sec || current._price_fresh_ttl_sec || 900,
+    });
+}
+
+function applyCachedPricesFromLocal() {
+    const cached = lsGetCache();
+    if (!cached) {
+        refreshStatusText();
+        return;
+    }
+    applyPrices(cached.positions || {}, cached._price_ages || {}, cached._price_fresh_ttl_sec || 900, { resetLive: true });
+    refreshStatusText();
+}
+
+function initPriceRefreshControls() {
+    const bindDotClicks = (containerEl) => {
+        containerEl.addEventListener('click', e => {
+            const dot = e.target.closest('.price-dot[data-refresh-id]');
+            if (!dot || dot.disabled) return;
+            e.stopPropagation();
+            refreshOnePrice(dot.dataset.refreshId);
+        });
+    };
+    bindDotClicks(document.getElementById('positions-list'));
+    bindDotClicks(document.getElementById('ativos-list'));
+
+    document.getElementById('price-status').addEventListener('click', () => {
+        if (refreshingIds.size) return;
+        refreshAllPrices();
+    });
+}
+
+function startRefreshing(ids) {
+    ids.forEach(id => refreshingIds.add(id));
+    renderPositionsList();
+    renderAtivosList();
+}
+
+function stopRefreshing(ids) {
+    ids.forEach(id => refreshingIds.delete(id));
+    renderPositionsList();
+    renderAtivosList();
+}
+
+async function refreshOnePrice(id) {
+    const p = positions.find(pos => posKey(pos) === id);
+    if (!canRefreshPrice(p) || refreshingIds.has(id)) return;
+    startRefreshing([id]);
+    setPriceStatus('loading', t('pf.updating_ticker', { ticker: p.ticker }));
+    try {
+        const url = `/api/all-prices?force=1&isin=${encodeURIComponent(id)}`;
+        const resp = await fetch(url);
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        if (data._pending && !(data.positions || {})[id] && data._retry_after_sec) {
+            setPriceStatus('loading', t('pf.waiting_credits', { s: data._retry_after_sec }));
+            priceRefreshTimer = setTimeout(() => refreshOnePrice(id), data._retry_after_sec * 1000);
+            return;
+        }
+        if (!(data.positions || {})[id]) {
+            const msg = data._symbol_errors ? Object.values(data._symbol_errors)[0] : '';
+            throw new Error(msg || t('pf.no_price_returned'));
+        }
+        applyPrices(data.positions || {}, data._price_ages || {}, data._price_fresh_ttl_sec || 900, { persist: true });
+        mergeLocalPriceCache(data);
+        refreshStatusText();
+        maybeTakeSnapshot();
+    } catch (e) {
+        setPriceStatus('error', e.message && e.message.length <= 48 ? e.message : t('pf.price_unavailable'));
+    } finally {
+        stopRefreshing([id]);
+        if (!document.getElementById('price-status').classList.contains('error')) {
+            refreshStatusText();
+        }
+    }
+}
+
+async function refreshAllPrices() {
+    const ids = positions.filter(canRefreshPrice).map(posKey).filter(Boolean);
+    if (!ids.length) return;
+    startRefreshing(ids);
+    setPriceStatus('loading', t('pf.updating_n_assets', { n: ids.length }));
+    try {
+        const resp = await fetch('/api/all-prices?force=1');
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        applyPrices(data.positions || {}, data._price_ages || {}, data._price_fresh_ttl_sec || 900, { persist: true });
+        mergeLocalPriceCache(data);
+        const failed = data._symbol_errors ? Object.keys(data._symbol_errors).length : 0;
+        if (failed) {
+            setPriceStatus('error', t('pf.assets_failed', { n: failed, plural: failed !== 1 ? 's' : '' }));
+        } else {
+            refreshStatusText();
+        }
+        maybeTakeSnapshot();
+    } catch (e) {
+        setPriceStatus('error', e.message && e.message.length <= 48 ? e.message : t('pf.price_update_error'));
+    } finally {
+        stopRefreshing(ids);
+    }
+}
+
+// Snapshot diário: corre uma vez por dia, sem custo extra (usa cache do servidor)
+function maybeTakeSnapshot() {
+    const today = new Date().toISOString().slice(0, 10);
+    const key   = 'st_last_snapshot';
+    if (localStorage.getItem(key) === today) return;   // já foi feito hoje
+    fetch('/api/snapshot')
+        .then(r => r.json())
+        .then(d => { if (d.ok) localStorage.setItem(key, today); })
+        .catch(() => {});
+}
+
+function applyPrices(priceMap, priceAges = {}, ttlSec = 900, options = {}) {
+    let updated = 0;
+    if (options.resetLive) positions.forEach(p => { p.live = false; });
+    positions.forEach(p => {
+        const key = posKey(p);
+        if (priceMap[key] != null) {
+            p.currentPrice = priceMap[key];
+            computePosition(p);
+            p.live = priceAges[key] == null || priceAges[key] < ttlSec;
+            updated++;
+        }
+    });
+    if (updated > 0) {
+        renderPerformance();
+        renderPositionsList();
+        renderAtivosList();
+        if (chart) updateChart(activeTab);
+        refreshStatusText();
+        if (options.persist) persistPositions();
+    }
+}
+
+// Grava currentPrice (e derivados) em data/positions.json após um refresh ao vivo,
+// para que outras páginas que leem o ficheiro diretamente (ex. performance.html) vejam o mesmo valor.
+async function persistPositions() {
+    const toSave = positions.map(({ total, pnl, pnlPct, live, ...rest }) => rest);
+    try {
+        await fetch('/api/data/positions.json', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(toSave, null, 2),
+        });
+    } catch { /* falha silenciosa: o preço já ficou aplicado localmente, tenta-se de novo no próximo refresh */ }
+}
+
+// ── Gráfico ───────────────────────────────────────────────────────────────
+const externalLabelsPlugin = {
+    id: 'externalLabels',
+    afterDraw(chart) {
+        if (!chartItems.length) return;
+        const { ctx } = chart;
+        const meta = chart.getDatasetMeta(0);
+        if (!meta.data.length) return;
+
+        const cx     = meta.data[0].x;
+        const cy     = meta.data[0].y;
+        const outerR = meta.data[0].outerRadius;
+        const total  = chartItems.reduce((s, it) => s + it.value, 0);
+
+        ctx.save();
+        ctx.font = '500 11.5px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+
+        chartItems.forEach((item, i) => {
+            const arc = meta.data[i];
+            if (!arc) return;
+            const pct = item.value / total * 100;
+            if (pct < 1) return;
+
+            const mid    = (arc.startAngle + arc.endAngle) / 2;
+            const radius = outerR + 52;
+            const lx     = cx + Math.cos(mid) * radius;
+            const ly     = cy + Math.sin(mid) * radius;
+            const label  = `${item.label}  ${pct.toFixed(2).replace('.', ',')} %`;
+
+            ctx.textAlign    = 'center';
+            ctx.textBaseline = 'middle';
+            const bw = ctx.measureText(label).width + 20;
+            const bh = 22;
+
+            ctx.fillStyle   = 'rgba(18,18,18,0.93)';
+            ctx.strokeStyle = '#2e2e2e';
+            ctx.lineWidth   = 1;
+            roundRect(ctx, lx - bw / 2, ly - bh / 2, bw, bh, 5);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(label, lx, ly);
+        });
+        ctx.restore();
+    }
+};
+
+function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+}
+
+const centerVisibilityPlugin = {
+    id: 'centerVisibility',
+    afterDraw(chart) {
+        const active = chart.tooltip?._active?.length > 0;
+        const opacity = active ? '0' : '1';
+        ['chart-total', 'chart-pnl', 'chart-label'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.opacity = opacity;
+        });
+    }
+};
+
+Chart.register(externalLabelsPlugin, centerVisibilityPlugin);
+
+function buildChartItems(tab) {
+    if (tab === 'posicoes') {
+        const src = positionTypeFilter ? positions.filter(p => p.type === positionTypeFilter) : positions;
+        chartItems = src.map((p, i) => ({
+            id:    posKey(p),
+            label: p.ticker,
+            value: p.total,
+            color: `hsl(207, 72%, ${50 + i * 2}%)`,
+        }));
+    } else {
+        chartItems = TYPE_ORDER
+            .filter(type => !hiddenTypes.has(type))
+            .map(type => ({
+                label: TYPES[type].label,
+                value: positions.filter(p => p.type === type).reduce((s, p) => s + p.total, 0),
+                color: TYPES[type].color,
+            }))
+            .filter(it => it.value > 0);
+    }
+}
+
+function initChart() {
+    buildChartItems('ativos');
+    chart = new Chart(document.getElementById('portfolioChart').getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels: chartItems.map(it => it.label),
+            datasets: [{
+                data:            chartItems.map(it => it.value),
+                backgroundColor: chartItems.map(it => it.color),
+                borderColor:     '#000000',
+                borderWidth:     2,
+                hoverOffset:     8,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 1,
+            cutout: '62%',
+            layout: { padding: 100 },
+            onHover(_, activeEls) {
+                // Chart → list sync
+                document.querySelectorAll('.position-item.chart-hover').forEach(el => el.classList.remove('chart-hover'));
+                if (!activeEls.length) return;
+                const item = chartItems[activeEls[0].index];
+                if (!item) return;
+                if (activeTab === 'posicoes') {
+                    document.querySelectorAll(`.position-item[data-id="${item.id}"]`).forEach(el => el.classList.add('chart-hover'));
+                } else {
+                    const type = TYPE_ORDER.find(t => TYPES[t].label === item.label);
+                    if (type) document.querySelectorAll('.position-item').forEach(el => {
+                        const p = positions.find(p => posKey(p) === el.dataset.id);
+                        if (p?.type === type) el.classList.add('chart-hover');
+                    });
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    enabled: true,
+                    backgroundColor: 'rgba(20,20,20,0.97)',
+                    titleColor: '#fff',
+                    bodyColor: '#ccc',
+                    borderColor: '#333',
+                    borderWidth: 1,
+                    padding: 10,
+                    callbacks: {
+                        label(ctx) {
+                            const it  = chartItems[ctx.dataIndex];
+                            const tot = chartItems.reduce((s, x) => s + x.value, 0);
+                            const pct = (it.value / tot * 100).toFixed(2).replace('.', ',');
+                            return `${fmtEur(it.value)}  ·  ${pct} %`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updateChartCenter() {
+    const visiblePositions = activeTab === 'ativos'
+        ? positions.filter(p => !hiddenTypes.has(p.type))
+        : positionTypeFilter ? positions.filter(p => p.type === positionTypeFilter) : positions;
+    const total    = visiblePositions.reduce((s, p) => s + p.total, 0);
+    const totalPnl = visiblePositions.reduce((s, p) => s + p.pnl,   0);
+    const cost     = total - totalPnl;
+    const pnlPct   = cost > 0 ? totalPnl / cost * 100 : 0;
+    const cls      = totalPnl >= 0 ? 'up' : 'down';
+    const sign     = totalPnl >= 0 ? '+' : '−';
+    const arrow    = totalPnl >= 0 ? '▲' : '▼';
+
+    const totalEl = document.getElementById('chart-total');
+    totalEl.textContent = fmtEur(total);
+    totalEl.classList.toggle('hidden', !showTotalBalance);
+    const pnlEl = document.getElementById('chart-pnl');
+    pnlEl.className = `chart-center-pnl ${cls}`;
+    pnlEl.textContent = `${arrow} ${sign}${Math.abs(totalPnl).toFixed(2).replace('.', ',')} € · ${sign}${Math.abs(pnlPct).toFixed(2).replace('.', ',')} %`;
+}
+
+// ── Chart activation helpers ──────────────────────────────────────────────
+function activateChartForId(id) {
+    if (!chart) return;
+    const pos = positions.find(p => posKey(p) === id);
+    if (!pos) return;
+    const idx = activeTab === 'posicoes'
+        ? chartItems.findIndex(it => it.id === id)
+        : chartItems.findIndex(it => it.label === TYPES[pos.type]?.label);
+    if (idx < 0) return;
+    chart.setActiveElements([{ datasetIndex: 0, index: idx }]);
+    chart.tooltip.setActiveElements([{ datasetIndex: 0, index: idx }], { x: 0, y: 0 });
+    chart.update('none');
+}
+
+function restoreChartActive() {
+    if (!chart) return;
+    if (expandedPositionId) {
+        activateChartForId(expandedPositionId);
+    } else {
+        chart.setActiveElements([]);
+        chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+        chart.update('none');
+    }
+}
+
+function bindListHoverToChart() {
+    document.querySelectorAll('.position-item[data-id]').forEach(el => {
+        el.addEventListener('mouseenter', () => activateChartForId(el.dataset.id));
+        el.addEventListener('mouseleave', restoreChartActive);
+    });
+}
+
+function initPositionClickDelegation() {
+    // Use delegation so click fires exactly once per click, regardless of re-renders
+    const delegate = (containerEl) => {
+        containerEl.addEventListener('click', e => {
+            // Ignore clicks inside the detail panel itself
+            if (e.target.closest('.position-detail')) return;
+            const item = e.target.closest('.position-item[data-id]');
+            if (item) togglePositionDetail(item.dataset.id);
+        });
+    };
+    delegate(document.getElementById('positions-list'));
+    delegate(document.getElementById('ativos-list'));
+}
+
+// ── Position detail panel ─────────────────────────────────────────────────
+function togglePositionDetail(id) {
+    if (expandedPositionId === id) {
+        expandedPositionId = null;
+        removePositionDetails();
+        restoreChartActive();
+    } else {
+        expandedPositionId = id;
+        removePositionDetails();
+        insertPositionDetail(id);
+        activateChartForId(id);
+    }
+    // Keep list-item highlight in sync
+    document.querySelectorAll('.position-item').forEach(el => {
+        el.classList.toggle('pos-expanded', el.dataset.id === expandedPositionId);
+    });
+}
+
+function removePositionDetails() {
+    document.querySelectorAll('.position-detail').forEach(el => el.remove());
+}
+
+function insertPositionDetail(id) {
+    const p = positions.find(pos => posKey(pos) === id);
+    if (!p) return;
+
+    const isSpecial = ['realestate', 'bonds'].includes(p.type);
+
+    const chips = [];
+    if (!isSpecial) {
+        if (p.units != null)        chips.push([t('pf.field_units'),   p.units]);
+        if (p.avgBuyPrice != null)  chips.push([t('pf.chip_buy'),      fmtEur(p.avgBuyPrice)]);
+        if (p.currentPrice != null) chips.push([t('pf.chip_current'),  fmtEur(p.currentPrice)]);
+        if (p.priceCurrency)        chips.push([t('pf.field_currency'), p.priceCurrency]);
+    } else {
+        if (p.investedAmount != null) chips.push([t('pf.chip_invested'),    fmtEur(p.investedAmount)]);
+        if (p.annualReturn != null)   chips.push([t('pf.chip_return_year'), p.annualReturn + ' %']);
+        if (p.startDate) chips.push([t('pf.chip_start'), new Date(p.startDate).toLocaleDateString('pt-PT')]);
+    }
+    if (p.ticker)  chips.push([t('pf.field_ticker'), p.ticker]);
+    if (p.isin && p.isin !== p.ticker) chips.push([t('pf.field_isin'), p.isin]);
+    const yfSym = yfDisplay(p);
+    if (yfSym && yfSym !== p.ticker) chips.push([t('pf.chip_yahoo'), yfSym]);
+
+    const chipsHTML = chips.map(([label, value]) => `
+        <span class="pos-detail-chip">
+            <span class="pos-detail-chip-label">${label}</span>
+            <span class="pos-detail-chip-value">${value}</span>
+        </span>`).join('');
+
+    document.querySelectorAll(`.position-item[data-id="${id}"]`).forEach(item => {
+        const detail = document.createElement('li');
+        detail.className = 'position-detail';
+        detail.dataset.id = id;
+        detail.innerHTML = `
+            <div class="pos-detail-chips">${chipsHTML}</div>
+            <div class="pos-detail-footer">
+                <button class="pos-add-wl-btn">${t('pf.add_watchlist')}</button>
+                <div class="pos-wl-picker hidden"></div>
+            </div>`;
+
+        const btn    = detail.querySelector('.pos-add-wl-btn');
+        const picker = detail.querySelector('.pos-wl-picker');
+
+        btn.addEventListener('click', async (ev) => {
+            ev.stopPropagation();
+            if (!picker.classList.contains('hidden')) { picker.classList.add('hidden'); return; }
+            picker.innerHTML = `<span class="dim" style="font-size:12px">${t('pf.loading')}</span>`;
+            picker.classList.remove('hidden');
+            try {
+                const raw   = await fetch('/api/data/watchlist.json?_=' + Date.now()).then(r => r.json());
+                const lists = (raw.length && 'items' in raw[0]) ? raw : [{ id: 'favoritos', name: t('pf.default_watchlist_name'), items: raw }];
+                if (!lists.length) { picker.innerHTML = `<span class="dim" style="font-size:12px">${t('pf.no_lists')}</span>`; return; }
+
+                picker.innerHTML = lists.map(l => {
+                    const already = l.items.some(s => s.ticker === (p.ticker || posKey(p)));
+                    return `<button class="pos-wl-list-btn${already ? ' already' : ''}" data-list-id="${l.id}"${already ? ' disabled' : ''}>${l.name}${already ? ' ✓' : ''}</button>`;
+                }).join('');
+
+                picker.querySelectorAll('.pos-wl-list-btn:not([disabled])').forEach(b => {
+                    b.addEventListener('click', async (ev) => {
+                        ev.stopPropagation();
+                        const listId = b.getAttribute('data-list-id');
+                        const list   = lists.find(l => l.id === listId);
+                        if (!list) { b.textContent = t('pf.list_not_found'); return; }
+                        b.disabled = true;
+                        b.textContent = t('pf.saving');
+                        list.items.push({
+                            name: p.name, ticker: p.ticker || posKey(p),
+                            yfSymbol: p.yfSymbol || p.ticker || posKey(p),
+                            bg: p.bg || '#1a1a2a', priceCurrency: p.priceCurrency || 'EUR',
+                            price: null, change: null, pct: null, up: true,
+                        });
+                        try {
+                            const resp = await fetch('/api/data/watchlist.json', {
+                                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(lists, null, 2),
+                            });
+                            b.textContent = resp.ok ? (list.name + ' ✓') : t('pf.save_error_generic');
+                        } catch (e) {
+                            b.textContent = t('pf.no_connection');
+                            list.items.pop(); // rollback
+                        }
+                    });
+                });
+            } catch (err) {
+                picker.innerHTML = '<span class="dim" style="font-size:12px">Erro ao carregar listas.</span>';
+                console.error(err);
+            }
+        });
+
+        item.after(detail);
+    });
+}
+
+function updateChart(tab) {
+    buildChartItems(tab);
+    chart.data.labels                       = chartItems.map(it => it.label);
+    chart.data.datasets[0].data            = chartItems.map(it => it.value);
+    chart.data.datasets[0].backgroundColor = chartItems.map(it => it.color);
+    document.getElementById('chart-label').textContent =
+        tab === 'ativos' ? t('pf.chart_by_category') : t('pf.chart_total_value');
+    updateChartCenter();
+    chart.update();
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
+document.querySelectorAll('.port-tab').forEach(btn => {
+    btn.addEventListener('click', function () {
+        const tab = this.dataset.tab;
+        if (tab === activeTab) return;
+        activeTab = tab;
+        document.querySelectorAll('.port-tab').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        document.getElementById('view-posicoes').classList.toggle('hidden', tab !== 'posicoes');
+        document.getElementById('view-ativos').classList.toggle('hidden',   tab !== 'ativos');
+        if (chart) updateChart(tab);
+    });
+});
+
+// ── Drawer: abrir / fechar ────────────────────────────────────────────────
+let draftPositions = [];
+
+function openDrawer() {
+    expandedPositionId = null;
+    removePositionDetails();
+    draftPositions = positions.map(p => ({ ...p }));
+    renderEditRows();
+    document.getElementById('add-form').classList.add('hidden');
+    document.getElementById('edit-drawer').classList.add('open');
+    document.getElementById('edit-backdrop').classList.add('open');
+}
+
+function closeDrawer() {
+    document.getElementById('edit-drawer').classList.remove('open');
+    document.getElementById('edit-backdrop').classList.remove('open');
+}
+
+document.getElementById('open-edit').addEventListener('click', openDrawer);
+document.getElementById('edit-close').addEventListener('click', closeDrawer);
+document.getElementById('edit-cancel').addEventListener('click', closeDrawer);
+document.getElementById('edit-backdrop').addEventListener('click', closeDrawer);
+
+// ── Drawer: linhas de posições ────────────────────────────────────────────
+function renderEditRows() {
+    document.getElementById('edit-rows').innerHTML = draftPositions.map((p, i) => {
+        const abbr     = p.ticker.slice(0, 6);
+        const typeOpts = Object.entries(TYPES).map(([k, v]) =>
+            `<option value="${k}" ${p.type === k ? 'selected' : ''}>${v.label}</option>`
+        ).join('');
+        return `
+        <div class="edit-row">
+            <div class="edit-row-top">
+                <div class="pos-icon" style="background:${p.bg};flex-shrink:0">${abbr}</div>
+                <div class="edit-row-id">
+                    <span class="edit-row-name">${p.name}</span>
+                    <span class="edit-row-ticker dim">${p.ticker}</span>
+                </div>
+                <select class="edit-type-sel" data-field="type" data-i="${i}">${typeOpts}</select>
+                <button class="edit-del-btn" data-del="${i}" title="${t('pf.remove_position_title')}">✕</button>
+            </div>
+            ${['realestate','bonds'].includes(p.type) ? `
+            <div class="edit-row-inputs">
+                <label class="edit-label">${t('pf.field_amount')}
+                    <input class="edit-input" type="number" step="0.01" min="0"
+                           data-field="investedAmount" data-i="${i}" value="${p.investedAmount || 0}">
+                </label>
+                <label class="edit-label">${t('pf.field_return_year')}
+                    <input class="edit-input" type="number" step="0.1" min="0"
+                           data-field="annualReturn" data-i="${i}" value="${p.annualReturn || 0}">
+                </label>
+                <label class="edit-label">${t('pf.field_start_date')}
+                    <input class="edit-input" type="date"
+                           data-field="startDate" data-i="${i}" value="${p.startDate || ''}">
+                </label>
+            </div>
+            <div class="edit-row-inputs" style="margin-top:6px">
+                <label class="edit-label edit-reinvest-label" style="flex-direction:row;gap:8px;align-items:center">
+                    <input type="checkbox" data-field="finalizado" data-i="${i}" ${p.finalizado ? 'checked' : ''}>
+                    ${t('pf.field_finalizado')}
+                </label>
+            </div>` : `
+            <div class="edit-row-inputs">
+                <label class="edit-label">${t('pf.field_units')}
+                    <input class="edit-input" type="number" step="any" min="0"
+                           data-field="units" data-i="${i}" value="${p.units}">
+                </label>
+                <label class="edit-label">${t('pf.field_avg_price')}
+                    <input class="edit-input" type="number" step="0.01" min="0"
+                           data-field="avgBuyPrice" data-i="${i}" value="${p.avgBuyPrice}">
+                </label>
+                <label class="edit-label">${t('pf.field_cur_price')}
+                    <input class="edit-input" type="number" step="0.01" min="0"
+                           data-field="currentPrice" data-i="${i}" value="${p.currentPrice}">
+                </label>
+            </div>
+            <div class="edit-row-inputs" style="margin-top:6px">
+                <label class="edit-label">${t('pf.field_isin')}
+                    <input class="edit-input" type="text"
+                           data-field="isin" data-i="${i}"
+                           value="${p.isin || ''}" placeholder="Ex: IE00B3RBWM25">
+                </label>
+                <label class="edit-label">${t('pf.field_yfsymbol')}
+                    <input class="edit-input" type="text"
+                           data-field="yfSymbol" data-i="${i}"
+                           value="${p.yfSymbol || ''}" placeholder="Ex: VWCE.DE">
+                </label>
+                <label class="edit-label">${t('pf.field_price_currency_short')}
+                    <select class="edit-input edit-type-sel"
+                            data-field="priceCurrency" data-i="${i}">
+                        <option value="EUR" ${(p.priceCurrency||'EUR')==='EUR'?'selected':''}>EUR</option>
+                        <option value="USD" ${(p.priceCurrency||'EUR')==='USD'?'selected':''}>USD</option>
+                    </select>
+                </label>
+            </div>`}
+        </div>`;
+    }).join('');
+}
+
+document.getElementById('edit-rows').addEventListener('change', function (e) {
+    const i     = e.target.dataset.i;
+    const field = e.target.dataset.field;
+    if (i === undefined || !field) return;
+    if (e.target.type === 'checkbox') {
+        draftPositions[+i][field] = e.target.checked;
+    } else if (e.target.type === 'number') {
+        draftPositions[+i][field] = +e.target.value;
+    } else if (field === 'yfSymbol') {
+        draftPositions[+i][field] = e.target.value.trim();
+        e.target.value = draftPositions[+i][field];
+    } else if (field === 'type') {
+        draftPositions[+i][field] = e.target.value;
+        renderEditRows();
+    } else {
+        draftPositions[+i][field] = e.target.value;
+    }
+});
+
+document.getElementById('edit-rows').addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-del]');
+    if (!btn) return;
+    draftPositions.splice(+btn.dataset.del, 1);
+    renderEditRows();
+});
+
+// ── Drawer: nova posição ──────────────────────────────────────────────────
+document.getElementById('add-type').addEventListener('change', function () {
+    const isFixed = ['realestate', 'bonds'].includes(this.value);
+    document.getElementById('add-regular-fields').classList.toggle('hidden', isFixed);
+    document.getElementById('add-realestate-fields').classList.toggle('hidden', !isFixed);
+});
+
+document.getElementById('show-add-form').addEventListener('click', function () {
+    document.getElementById('add-form').classList.remove('hidden');
+    document.getElementById('edit-drawer-body').scrollTop = 0;
+    document.getElementById('add-name').focus();
+});
+
+document.getElementById('add-cancel').addEventListener('click', function () {
+    document.getElementById('add-form').classList.add('hidden');
+    clearAddForm();
+});
+
+document.getElementById('add-confirm').addEventListener('click', function () {
+    const name   = document.getElementById('add-name').value.trim();
+    const ticker = document.getElementById('add-ticker').value.trim().toUpperCase();
+    const type   = document.getElementById('add-type').value;
+    const reinvest = document.getElementById('add-reinvest').checked;
+
+    const nameEl   = document.getElementById('add-name');
+    const tickerEl = document.getElementById('add-ticker');
+    nameEl.style.borderColor   = name   ? '' : 'var(--negative)';
+    tickerEl.style.borderColor = ticker ? '' : 'var(--negative)';
+    if (!name || !ticker) return;
+
+    const base = {
+        type, name, ticker,
+        bg: TYPE_BG[type] || '#1a1a1a',
+        currency: 'EUR', reinvest,
+    };
+
+    if (['realestate', 'bonds'].includes(type)) {
+        const invested     = +document.getElementById('add-invested').value;
+        const annualReturn = +document.getElementById('add-annual-return').value;
+        const startDate    = document.getElementById('add-start-date').value;
+        const finalizado   = document.getElementById('add-finalizado').checked;
+        draftPositions.push({
+            ...base,
+            isin: ticker.toLowerCase() + '-' + Date.now(),
+            yfSymbol: '', priceCurrency: 'EUR',
+            investedAmount: invested, annualReturn, startDate, finalizado,
+        });
+    } else {
+        const currency = document.getElementById('add-currency').value;
+        const units    = +document.getElementById('add-units').value;
+        const avgBuy   = +document.getElementById('add-avg').value;
+        const curPrice = +document.getElementById('add-cur').value;
+        const yfSymbol = document.getElementById('add-yfsymbol').value.trim();
+        const isin     = document.getElementById('add-isin').value.trim();
+        const priceCurrency = document.getElementById('add-price-currency').value;
+
+        let valid = true;
+        [['add-units', units], ['add-avg', avgBuy], ['add-cur', curPrice]].forEach(([id, val]) => {
+            const el = document.getElementById(id);
+            const ok = val > 0;
+            el.style.borderColor = ok ? '' : 'var(--negative)';
+            if (!ok) valid = false;
+        });
+        if (!valid) return;
+
+        draftPositions.push({
+            ...base,
+            isin: isin || ticker.toLowerCase() + '-' + Date.now(),
+            yfSymbol, priceCurrency,
+            units, avgBuyPrice: avgBuy, currentPrice: curPrice,
+            currency,
+        });
+    }
+
+    renderEditRows();
+    document.getElementById('add-form').classList.add('hidden');
+    clearAddForm();
+    const body = document.getElementById('edit-drawer-body');
+    body.scrollTop = body.scrollHeight;
+});
+
+function clearAddForm() {
+    ['add-name', 'add-ticker', 'add-units', 'add-avg', 'add-cur', 'add-yfsymbol', 'add-isin',
+     'add-invested', 'add-annual-return', 'add-start-date']
+        .forEach(id => { const el = document.getElementById(id); if (el) { el.value = ''; el.style.borderColor = ''; } });
+    document.getElementById('add-reinvest').checked = false;
+    document.getElementById('add-finalizado').checked = false;
+    document.getElementById('add-price-currency').value = 'EUR';
+    document.getElementById('add-type').value = 'etf';
+    document.getElementById('add-regular-fields').classList.remove('hidden');
+    document.getElementById('add-realestate-fields').classList.add('hidden');
+}
+
+// ── Drawer: guardar ───────────────────────────────────────────────────────
+document.getElementById('edit-save').addEventListener('click', async function () {
+    const btn = this;
+    btn.textContent = t('pf.saving');
+    btn.disabled    = true;
+
+    const toSave = draftPositions.map(({ total, pnl, pnlPct, live, ...rest }) => rest);
+
+    try {
+        const resp = await fetch('/api/data/positions.json', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(toSave, null, 2),
+        });
+        if (!resp.ok) throw new Error((await resp.json()).error || resp.statusText);
+
+        positions = draftPositions;
+        positions.forEach(computePosition);
+        renderPerformance();
+        renderPositionsList();
+        renderAtivosList();
+        if (chart) updateChart(activeTab);
+        closeDrawer();
+        applyCachedPricesFromLocal();
+    } catch (e) {
+        alert(e instanceof TypeError
+            ? t('pf.restart_server_msg')
+            : t('pf.save_error_prefix') + e.message);
+    } finally {
+        btn.textContent = t('pf.save');
+        btn.disabled    = false;
+    }
+});
+
+// ── Posições category filter ──────────────────────────────────────────────
+function initPositionFilter() {
+    const container = document.getElementById('pos-filter-pills');
+    if (!container) return;
+
+    const usedTypes = TYPE_ORDER.filter(t => positions.some(p => p.type === t));
+    container.innerHTML = [
+        `<button class="pos-filter-pill active" data-type="">${t('pf.filter_all')}</button>`,
+        ...usedTypes.map(t => `<button class="pos-filter-pill" data-type="${t}">${TYPES[t].label}</button>`),
+    ].join('');
+
+    container.addEventListener('click', e => {
+        const pill = e.target.closest('.pos-filter-pill');
+        if (!pill) return;
+        positionTypeFilter = pill.dataset.type || null;
+        container.querySelectorAll('.pos-filter-pill').forEach(b => b.classList.toggle('active', b === pill));
+        renderPositionsList();
+        if (chart && activeTab === 'posicoes') updateChart('posicoes');
+    });
+}
+
+// ── Arrancar ──────────────────────────────────────────────────────────────
+init();
+</script>
+
+</body>
+</html>
