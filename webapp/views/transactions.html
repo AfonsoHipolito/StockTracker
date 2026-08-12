@@ -258,7 +258,11 @@
                     </select>
                 </label>
                 <label class="edit-label"><span data-i18n="tx.import_file_label">Ficheiro</span>
-                    <input class="edit-input" id="import-file" type="file" accept=".csv,.xlsx">
+                    <div class="file-picker">
+                        <input type="file" id="import-file" class="file-picker-input" accept=".csv,.xlsx">
+                        <button type="button" class="file-picker-btn" id="import-file-btn" data-i18n="tx.import_choose_file">Escolher ficheiro</button>
+                        <span class="file-picker-name" id="import-file-name" data-i18n="tx.import_no_file">Nenhum ficheiro selecionado</span>
+                    </div>
                 </label>
             </div>
             <p class="dim" id="import-file-hint" style="font-size:12px;margin-top:4px" data-i18n="tx.import_file_hint_xtb">
@@ -819,6 +823,7 @@ function resetImportForm() {
     importCandidates = [];
     importSkipped = [];
     document.getElementById('import-file').value = '';
+    document.getElementById('import-file-name').textContent = t('tx.import_no_file');
     document.getElementById('import-broker').value = 'xtb';
     document.getElementById('import-error').style.display = 'none';
     document.getElementById('import-commit-error').style.display = 'none';
@@ -826,6 +831,13 @@ function resetImportForm() {
     updateImportFileHint();
     showImportStep('file');
 }
+
+document.getElementById('import-file-btn').addEventListener('click', () => {
+    document.getElementById('import-file').click();
+});
+document.getElementById('import-file').addEventListener('change', function () {
+    document.getElementById('import-file-name').textContent = this.files[0]?.name || t('tx.import_no_file');
+});
 
 function updateImportFileHint() {
     const broker = document.getElementById('import-broker').value;

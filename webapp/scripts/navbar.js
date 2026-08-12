@@ -17,12 +17,15 @@ function mountNavbar(activePage) {
 
     el.className = 'navbar';
     el.innerHTML = `
-        <a href="portfolio.html" class="nav-logo">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path d="M3 5h18M3 12h18M3 19h18" stroke="white" stroke-width="2.2" stroke-linecap="round"/>
-            </svg>
-            ${t('nav.brand')}
-        </a>
+        <div class="nav-logo">
+            <a href="portfolio.html" class="nav-home-link" title="${t('nav.home_title')}">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 10.5L12 3l9 7.5" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </a>
+            <span id="nav-logo-text" class="nav-logo-text"></span>
+        </div>
 
         <div class="nav-search" id="nav-search-wrap">
             <svg class="ico-search" width="15" height="15" viewBox="0 0 24 24" fill="none">
@@ -55,8 +58,23 @@ function mountNavbar(activePage) {
                 </div>
             </div>
             <div class="nav-profile" id="nav-profile">
-                <div class="nav-avatar" id="nav-avatar">A</div>
+                <div class="nav-avatar" id="nav-avatar">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="12" cy="5" r="2.2"/>
+                        <circle cx="12" cy="12" r="2.2"/>
+                        <circle cx="12" cy="19" r="2.2"/>
+                    </svg>
+                </div>
                 <div id="profile-dropdown" class="profile-dropdown hidden">
+                    <button class="profile-menu-item" id="profile-help-btn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        ${t('nav.help')}
+                    </button>
+                    <div class="profile-menu-divider"></div>
                     <button class="profile-menu-item" id="profile-settings-btn">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                             <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
@@ -133,7 +151,51 @@ function mountNavbar(activePage) {
     initBell();
     initProfile();
     initNavSearch(activePage);
-    initAvatar();
+    typewriteLoop();
+}
+
+// ── Logo animado (máquina de escrever, ciclo saudação ↔ StockTracker) ───────────
+async function typewriteLoop() {
+    const el = document.getElementById('nav-logo-text');
+    if (!el) return;
+
+    let name = '';
+    try {
+        const cfg = await fetch('/api/data/config.json').then(r => r.json());
+        name = (cfg.user?.name || '').trim();
+    } catch { /* sem nome, usa só a saudação */ }
+
+    const hour = new Date().getHours();
+    const key  = hour < 5 ? 'nav.greeting_night'
+        : hour < 12 ? 'nav.greeting_morning'
+        : hour < 20 ? 'nav.greeting_afternoon'
+        : 'nav.greeting_night';
+    const greeting = name ? `${t(key)}, ${name}` : t(key);
+    const phrases  = [greeting, t('nav.brand')];
+
+    el.textContent = '';
+    const cursor = document.createElement('span');
+    cursor.className = 'nav-greeting-cursor';
+    cursor.textContent = '|';
+    el.appendChild(cursor);
+
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    while (true) {
+        for (const phrase of phrases) {
+            for (const ch of phrase) {
+                // Velocidade não constante: 30ms + 0–60ms aleatório por caractere.
+                await sleep(30 + Math.random() * 60);
+                cursor.before(ch);
+            }
+            await sleep(3000); // pausa a mostrar o texto completo
+            while (cursor.previousSibling) {
+                await sleep(15 + Math.random() * 30);
+                cursor.previousSibling.remove();
+            }
+            await sleep(300); // pausa antes de começar a escrever a frase seguinte
+        }
+    }
 }
 
 
@@ -213,16 +275,6 @@ function initBell() {
 
 // ── Profile dropdown & Settings modal ────────────────────────────────────────
 
-async function initAvatar() {
-    const avatar = document.getElementById('nav-avatar');
-    if (!avatar) return;
-    try {
-        const cfg  = await fetch('/api/data/config.json').then(r => r.json());
-        const name = (cfg.user?.name || '').trim();
-        avatar.textContent = name ? name[0].toUpperCase() : 'A';
-    } catch { /* mantém 'A' */ }
-}
-
 function initProfile() {
     const profile = document.getElementById('nav-profile');
     const drop    = document.getElementById('profile-dropdown');
@@ -237,6 +289,12 @@ function initProfile() {
         e.stopPropagation();
         drop.classList.add('hidden');
         openSettingsModal();
+    });
+
+    document.getElementById('profile-help-btn')?.addEventListener('click', e => {
+        e.stopPropagation();
+        drop.classList.add('hidden');
+        openHelpModal();
     });
 
     document.addEventListener('click', () => drop.classList.add('hidden'));
@@ -258,8 +316,86 @@ function initProfile() {
     document.getElementById('settings-clear-demo')?.addEventListener('click', clearDemoData);
 }
 
+// Modal de confirmação com o estilo da app (substitui o confirm() nativo do browser).
+function showConfirmModal(message, { title, confirmLabel, danger = false } = {}) {
+    return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-box" style="width:340px">
+                <div class="modal-header">
+                    <span class="modal-title">${title || t('common.confirm_title')}</span>
+                    <button class="modal-close" id="confirm-modal-close">✕</button>
+                </div>
+                <div class="modal-body">
+                    <p style="font-size:14px;line-height:1.5;margin:0">${message}</p>
+                    <div class="modal-actions" style="margin-top:16px">
+                        <button class="btn-secondary" id="confirm-modal-cancel">${t('pf.cancel')}</button>
+                        <button class="${danger ? 'btn-danger' : 'btn-primary'}" id="confirm-modal-ok">${confirmLabel || t('common.confirm_btn')}</button>
+                    </div>
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+
+        const cleanup = result => { overlay.remove(); resolve(result); };
+        overlay.querySelector('#confirm-modal-cancel').addEventListener('click', () => cleanup(false));
+        overlay.querySelector('#confirm-modal-close').addEventListener('click', () => cleanup(false));
+        overlay.querySelector('#confirm-modal-ok').addEventListener('click', () => cleanup(true));
+        overlay.addEventListener('click', e => { if (e.target === overlay) cleanup(false); });
+    });
+}
+
+// Guia de utilização, aberto a partir do menu de perfil (⋯) → Ajuda. Mesmo estilo
+// visual dos outros modais (modal-overlay/modal-box), mas informativo, sem confirmação.
+function openHelpModal() {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="modal-box" style="width:480px">
+            <div class="modal-header">
+                <span class="modal-title">${t('help.title')}</span>
+                <button class="modal-close" id="help-modal-close">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:13px;line-height:1.5;color:var(--muted);margin:0">${t('help.intro')}</p>
+
+                <div>
+                    <p style="font-size:13px;font-weight:600;margin:0 0 4px">${t('help.section_nav')}</p>
+                    <p style="font-size:13px;line-height:1.5;color:var(--muted);margin:0">${t('help.nav_body')}</p>
+                </div>
+
+                <div>
+                    <p style="font-size:13px;font-weight:600;margin:0 0 4px">${t('help.section_demo')}</p>
+                    <p style="font-size:13px;line-height:1.5;color:var(--muted);margin:0">${t('help.demo_body')}</p>
+                </div>
+
+                <div>
+                    <p style="font-size:13px;font-weight:600;margin:0 0 4px">${t('help.section_import')}</p>
+                    <p style="font-size:13px;line-height:1.5;color:var(--muted);margin:0">${t('help.import_body')}</p>
+                </div>
+
+                <div>
+                    <p style="font-size:13px;font-weight:600;margin:0 0 4px">${t('help.section_settings')}</p>
+                    <p style="font-size:13px;line-height:1.5;color:var(--muted);margin:0">${t('help.settings_body')}</p>
+                </div>
+
+                <p style="font-size:12px;line-height:1.5;color:#555;margin:4px 0 0">${t('help.footer_note')}</p>
+
+                <div class="modal-actions" style="margin-top:4px">
+                    <button class="btn-primary" id="help-modal-ok">${t('help.close_btn')}</button>
+                </div>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    overlay.querySelector('#help-modal-close').addEventListener('click', close);
+    overlay.querySelector('#help-modal-ok').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+}
+
 async function clearDemoData() {
-    if (!confirm(t('settings.confirm_clear_demo'))) return;
+    if (!await showConfirmModal(t('settings.confirm_clear_demo'), { danger: true })) return;
     const btn = document.getElementById('settings-clear-demo');
     const original = btn.textContent;
     btn.disabled = true;
@@ -344,7 +480,6 @@ async function saveSettings() {
             body:    JSON.stringify(current, null, 2),
         });
         if (!resp.ok) throw new Error();
-        await initAvatar();
 
         if (pendingLang !== getLang()) {
             setLang(pendingLang); // persiste em localStorage e recarrega a página

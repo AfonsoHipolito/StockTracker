@@ -15,6 +15,10 @@ const I18N = {
     pt: {
         // ── nav ──────────────────────────────────────────────────────────
         'nav.brand':               'StockTracker',
+        'nav.home_title':          'Página inicial',
+        'nav.greeting_morning':    'Bom dia',
+        'nav.greeting_afternoon':  'Boa tarde',
+        'nav.greeting_night':      'Boa noite',
         'nav.search_placeholder':  'Procurar ações, ETFs...',
         'nav.link_portfolio':      'Carteira',
         'nav.link_performance':    'Desempenho',
@@ -26,8 +30,27 @@ const I18N = {
         'nav.clear':               'Limpar',
         'nav.no_notifications':    'Sem notificações',
         'nav.settings':            'Configurações',
+        'nav.help':                'Ajuda',
         'nav.logout':              'Terminar sessão',
         'nav.search_not_implemented': 'Pesquisa de símbolos ainda não implementada.',
+
+        // ── common (modais partilhados, ex: confirmação) ────────────────────
+        'common.confirm_title':    'Confirmar',
+        'common.confirm_btn':      'Confirmar',
+
+        // ── help modal ───────────────────────────────────────────────────
+        'help.title':              'Como funciona a StockTracker',
+        'help.intro':              'Um resumo rápido para começares: navegação, dados de demonstração e configurações.',
+        'help.section_nav':        'Navegação',
+        'help.nav_body':           'Carteira mostra as tuas posições atuais; Desempenho acompanha a evolução da carteira ao longo do tempo; Transações regista compras, vendas e dividendos; Análise ajuda a avaliar ações através de rácios financeiros; Planos define objetivos de investimento; Income controla o orçamento mensal.',
+        'help.section_demo':       'Dados de demonstração',
+        'help.demo_body':          'A carteira começa com 8 posições fictícias (ações, ETFs, cripto e commodities) para veres a app já com dados. Remove-as em Configurações → Dados de demonstração → "Limpar dados de demonstração" assim que adicionares as tuas posições reais — as tuas não são afetadas.',
+        'help.section_import':     'Importar transações',
+        'help.import_body':        'Em Transações → "Importar ficheiro" podes carregar o extrato de operações da Trade Republic (CSV) ou o relatório de posições fechadas do XTB (Excel). A app mostra sempre uma pré-visualização editável antes de gravar seja o que for.',
+        'help.section_settings':   'Configurações',
+        'help.settings_body':      'No menu de perfil (⋯) → Configurações defines o teu nome, o idioma da app, e quais categorias de ativos aparecem já abertas na Carteira.',
+        'help.footer_note':        'Podes reabrir este guia a qualquer momento no menu de perfil (⋯) → Ajuda.',
+        'help.close_btn':          'Entendi',
 
         // ── settings modal ───────────────────────────────────────────────
         'settings.title':            'Configurações',
@@ -208,6 +231,8 @@ const I18N = {
         'tx.import_title':        'Importar transações',
         'tx.import_broker_label': 'Corretora',
         'tx.import_file_label':   'Ficheiro',
+        'tx.import_choose_file':  'Escolher ficheiro',
+        'tx.import_no_file':      'Nenhum ficheiro selecionado',
         'tx.import_file_hint_tr': 'Exporta o extrato de operações em CSV na app/site da Trade Republic.',
         'tx.import_file_hint_xtb': 'Exporta o relatório de "Closed Positions" em Excel (.xlsx) no XTB.',
         'tx.import_analyze_btn':  'Analisar ficheiro',
@@ -399,6 +424,10 @@ const I18N = {
     en: {
         // ── nav ──────────────────────────────────────────────────────────
         'nav.brand':               'StockTracker',
+        'nav.home_title':          'Home',
+        'nav.greeting_morning':    'Good morning',
+        'nav.greeting_afternoon':  'Good afternoon',
+        'nav.greeting_night':      'Good evening',
         'nav.search_placeholder':  'Search stocks, ETFs...',
         'nav.link_portfolio':      'Portfolio',
         'nav.link_performance':    'Performance',
@@ -410,8 +439,27 @@ const I18N = {
         'nav.clear':               'Clear',
         'nav.no_notifications':    'No notifications',
         'nav.settings':            'Settings',
+        'nav.help':                'Help',
         'nav.logout':              'Log out',
         'nav.search_not_implemented': 'Symbol search not implemented yet.',
+
+        // ── common (shared modals, e.g. confirmation) ───────────────────────
+        'common.confirm_title':    'Confirm',
+        'common.confirm_btn':      'Confirm',
+
+        // ── help modal ───────────────────────────────────────────────────
+        'help.title':              'How StockTracker works',
+        'help.intro':              'A quick summary to get you started: navigation, demo data, and settings.',
+        'help.section_nav':        'Navigation',
+        'help.nav_body':           'Portfolio shows your current positions; Performance tracks the portfolio\'s evolution over time; Transactions logs buys, sells, and dividends; Analysis helps evaluate stocks through financial ratios; Plans sets investment goals; Income tracks the monthly budget.',
+        'help.section_demo':       'Demo data',
+        'help.demo_body':          'The portfolio starts with 8 fictitious positions (stocks, ETFs, crypto and commodities) so you can see the app already populated. Remove them in Settings → Demo data → "Clear demo data" once you add your real positions — yours are not affected.',
+        'help.section_import':     'Import transactions',
+        'help.import_body':        'In Transactions → "Import file" you can upload the Trade Republic operations statement (CSV) or the XTB closed-positions report (Excel). The app always shows an editable preview before saving anything.',
+        'help.section_settings':   'Settings',
+        'help.settings_body':      'In the profile menu (⋯) → Settings you set your name, the app language, and which asset categories start expanded in the Portfolio.',
+        'help.footer_note':        'You can reopen this guide anytime from the profile menu (⋯) → Help.',
+        'help.close_btn':          'Got it',
 
         // ── settings modal ───────────────────────────────────────────────
         'settings.title':            'Settings',
@@ -592,6 +640,8 @@ const I18N = {
         'tx.import_title':        'Import transactions',
         'tx.import_broker_label': 'Broker',
         'tx.import_file_label':   'File',
+        'tx.import_choose_file':  'Choose file',
+        'tx.import_no_file':      'No file selected',
         'tx.import_file_hint_tr': 'Export the operations statement as CSV from the Trade Republic app/site.',
         'tx.import_file_hint_xtb': 'Export the "Closed Positions" report as Excel (.xlsx) from XTB.',
         'tx.import_analyze_btn':  'Analyze file',
