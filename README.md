@@ -1,41 +1,55 @@
 # StockTracker
 
-Aplicação pessoal de gestão de portfólio de investimentos, watchlist, transações e
-orçamento mensal — corre localmente, sem dependências externas além do Python.
+Personal app for portfolio management, transactions, investment research, and
+monthly budgeting.
 
-## Estrutura
+## Structure
 
-Backend em Python puro (`http.server`, sem frameworks) + frontend em HTML/JS/CSS
-vanilla, tudo em `webapp/`.
+Backend in Python (`http.server`, no frameworks) + frontend in vanilla
+HTML/JS/CSS, all under `webapp/`.
 
-## Funcionalidades
+## Features
 
-- **Carteira** — posições por ativo (ETFs, ações, cripto, imobiliário...), preços em
-  tempo real via [yfinance](https://pypi.org/project/yfinance/), gráfico de alocação.
-- **Watchlist** — listas de ativos a acompanhar.
-- **Transações** — registo de compras, vendas e dividendos.
-- **Desempenho** — evolução da carteira ao longo do tempo.
-- **Rendimento** — orçamento mensal por categorias e mensalidades fixas, com
-  histórico mês a mês e cálculo automático do valor investido (a partir das
-  transações registadas).
+- **Portfolio** — positions by asset type (ETFs, stocks, crypto, real estate...),
+  real-time prices via [yfinance](https://pypi.org/project/yfinance/), allocation chart.
+- **Watchlist** — lists of assets to track.
+- **Transactions** — record of buys, sells, and dividends.
+- **Performance** — portfolio evolution over time.
+- **Income** — monthly budget by category and fixed bills, with month-by-month
+  history and automatic calculation of the amount invested (from recorded
+  transactions).
 
-## Arrancar
+## Getting started
+
+**Linux / macOS:**
 
 ```sh
 cd webapp
-./setup.sh   # cria o venv e instala dependências
-./webapp.sh  # arranca o servidor em http://localhost:8080 (cria a BD vazia)
+./setup.sh   # creates the venv and installs dependencies
+./webapp.sh  # starts the server at http://localhost:8080 (creates an empty DB)
 ```
 
-## Dados
+**Windows:**
 
-Toda a informação (posições, transações, rendimento, watchlist, planos,
-histórico e análises) fica numa base de dados SQLite local,
-`webapp/db/stocktracker.db` — **ignorada pelo git** (`.gitignore`), nunca
-deve ser publicada. É criada automaticamente, vazia, no primeiro arranque do
-servidor (`server.py`). Em `webapp/db/examples/` há ficheiros de exemplo com
-dados fictícios que mostram o formato esperado por cada endpoint.
+```bat
+cd webapp
+setup.bat
+webapp.bat
+```
 
-## Requisitos
+If `setup.bat` can't find Python on your PATH, install it from
+[python.org/downloads](https://www.python.org/downloads/) and make sure to
+check "Add python.exe to PATH" in the installer.
+
+## Data
+
+All information (positions, transactions, income, watchlist, plans, history,
+and analysis) lives in a local SQLite database, `webapp/db/stocktracker.db`
+— **git-ignored** (`.gitignore`), never to be published. It's created
+automatically, empty, on the server's first run (`server.py`). See
+`webapp/db/examples/` for sample files showing the format expected by each
+endpoint.
+
+## Requirements
 
 - Python 3.10+

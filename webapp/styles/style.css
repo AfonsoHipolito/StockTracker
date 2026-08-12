@@ -778,6 +778,7 @@ body {
     transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .edit-drawer.open { transform: translateX(0); }
+.edit-drawer.wide { width: 760px; max-width: calc(100vw - 32px); }
 
 .edit-drawer-header {
     display: flex;

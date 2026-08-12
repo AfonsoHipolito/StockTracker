@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Servidor: ficheiros estáticos + API de preços via yfinance, com cache em memória."""
 
+import csv
 import http.server
+import io
 import json
 import re
 import socketserver
@@ -13,6 +15,7 @@ import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
 
+import openpyxl
 import yfinance as yf
 
 sys.stdout.reconfigure(line_buffering=True)
@@ -467,6 +470,141 @@ def db_get_history(conn):
         result.append({'date': date, 'prices': prices, 'positions': positions})
     return result
 
+# ── Import de extratos (CSV/Excel de corretoras) ────────────────────────────────
+# Cada parser devolve (candidates, skipped). 'candidates' são transações por confirmar
+# no frontend (pré-visualização editável); 'skipped' são linhas do ficheiro ignoradas
+# de propósito (juros, transferências, migrações internas, posições short), com motivo.
+
+def _parse_tr_csv(raw_bytes):
+    text = raw_bytes.decode('utf-8-sig')
+    reader = csv.DictReader(io.StringIO(text))
+    candidates, skipped = [], []
+
+    for row in reader:
+        category = (row.get('category') or '').strip()
+        rtype    = (row.get('type') or '').strip()
+        date     = (row.get('date') or '').strip()
+        name     = (row.get('name') or '').strip()
+        isin     = (row.get('symbol') or '').strip()
+        asset_class = (row.get('asset_class') or '').strip()
+
+        if category == 'TRADING' and rtype in ('BUY', 'SELL'):
+            try:
+                shares = abs(float(row.get('shares') or 0))
+                price  = float(row.get('price') or 0)
+                fee    = abs(float(row.get('fee') or 0))
+            except ValueError:
+                skipped.append({'date': date, 'name': name, 'reason': 'valores numéricos inválidos'})
+                continue
+            if shares <= 0 or price <= 0:
+                skipped.append({'date': date, 'name': name, 'reason': 'volume ou preço em falta'})
+                continue
+            candidates.append({
+                'kind': 'buy' if rtype == 'BUY' else 'sell',
+                'date': date, 'instrument': name, 'isin': isin,
+                'volume': shares, 'price': price, 'fee': fee,
+                'assetTypeGuess': 'stock' if asset_class == 'STOCK' else 'etf',
+            })
+        elif category == 'CASH':
+            skipped.append({'date': date, 'name': name or rtype, 'reason': f'movimento de saldo ({rtype.lower()}), não é uma transação de ativo'})
+        elif category == 'DELIVERY' and rtype == 'MIGRATION':
+            skipped.append({'date': date, 'name': name, 'reason': 'migração interna de instrumento, sem efeito na carteira'})
+        else:
+            skipped.append({'date': date, 'name': name or rtype, 'reason': f'tipo não reconhecido ({category}/{rtype})'})
+
+    return candidates, skipped
+
+
+def _xtb_date(value):
+    """Colunas de data do XTB vêm como datetime (Excel) ou string 'YYYY-MM-DD HH:MM:SS'."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.strftime('%Y-%m-%d')
+    s = str(value).strip()
+    return s[:10] if len(s) >= 10 else None
+
+
+def _normalize_xtb_ticker(raw):
+    raw = (raw or '').strip().upper()
+    if raw.endswith('.US'):
+        return raw[:-3]
+    return raw
+
+
+def _parse_xtb_xlsx(raw_bytes):
+    wb = openpyxl.load_workbook(io.BytesIO(raw_bytes), data_only=True)
+    ws = wb.active
+    rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        return [], []
+
+    header = [str(h).strip() if h is not None else '' for h in rows[0]]
+    idx = {name: i for i, name in enumerate(header)}
+    required = ['Instrument', 'Ticker', 'Category', 'Type', 'Volume', 'Open Price',
+                'Open Time (UTC)', 'Close Price', 'Close Time (UTC)', 'Purchase Value',
+                'Sale Value', 'Commission']
+    missing = [r for r in required if r not in idx]
+    if missing:
+        raise ValueError(f'colunas em falta no ficheiro: {", ".join(missing)}')
+
+    def get(row, col):
+        i = idx[col]
+        return row[i] if i < len(row) else None
+
+    candidates, skipped = [], []
+    for row in rows[1:]:
+        if row is None or all(v is None for v in row):
+            continue
+
+        instrument = str(get(row, 'Instrument') or '').strip()
+        ticker_raw = str(get(row, 'Ticker') or '').strip()
+        category   = str(get(row, 'Category') or '').strip()
+        rtype      = str(get(row, 'Type') or '').strip()
+        if not instrument and not ticker_raw:
+            continue
+
+        if rtype != 'BUY':
+            skipped.append({'date': '', 'name': instrument or ticker_raw,
+                             'reason': f'tipo "{rtype}" não suportado (posição short)'})
+            continue
+
+        try:
+            volume     = float(get(row, 'Volume') or 0)
+            open_price = float(get(row, 'Open Price') or 0)
+            close_price = float(get(row, 'Close Price') or 0)
+            purchase_v = float(get(row, 'Purchase Value') or 0)
+            sale_v     = float(get(row, 'Sale Value') or 0)
+            commission = abs(float(get(row, 'Commission') or 0))
+        except (TypeError, ValueError):
+            skipped.append({'date': '', 'name': instrument, 'reason': 'valores numéricos inválidos'})
+            continue
+        if volume <= 0:
+            skipped.append({'date': '', 'name': instrument, 'reason': 'volume em falta'})
+            continue
+
+        open_date  = _xtb_date(get(row, 'Open Time (UTC)'))
+        close_date = _xtb_date(get(row, 'Close Time (UTC)'))
+        if not open_date or not close_date:
+            skipped.append({'date': '', 'name': instrument, 'reason': 'datas em falta ou inválidas'})
+            continue
+
+        yf_guess   = _normalize_xtb_ticker(ticker_raw)
+        asset_type = 'etf' if category.upper() == 'ETF' else 'stock'
+
+        candidates.append({
+            'kind': 'buy', 'date': open_date, 'instrument': instrument, 'isin': '',
+            'volume': volume, 'price': round(purchase_v / volume, 6) if volume else open_price,
+            'fee': 0, 'yfSymbolGuess': yf_guess, 'assetTypeGuess': asset_type,
+        })
+        candidates.append({
+            'kind': 'sell', 'date': close_date, 'instrument': instrument, 'isin': '',
+            'volume': volume, 'price': round(sale_v / volume, 6) if volume else close_price,
+            'fee': commission, 'yfSymbolGuess': yf_guess, 'assetTypeGuess': asset_type,
+        })
+
+    return candidates, skipped
+
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -565,6 +703,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         if parsed.path.startswith('/api/reports/'):
             self._handle_report_post(parsed.path[len('/api/reports/'):])
+            return
+
+        if parsed.path == '/api/import/parse':
+            qs = urllib.parse.parse_qs(parsed.query)
+            broker = qs.get('broker', [''])[0]
+            self._handle_import_parse(broker)
             return
 
         if not parsed.path.startswith('/api/data/'):
@@ -1036,6 +1180,82 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         except Exception as exc:
             print(f"  yfinance history: ERRO {exc}")
             return []
+
+    # ── Import de extratos ──────────────────────────────────────────────────────
+    def _handle_import_parse(self, broker):
+        length = int(self.headers.get('Content-Length', 0))
+        raw = self.rfile.read(length)
+
+        try:
+            if broker == 'tr':
+                candidates, skipped = _parse_tr_csv(raw)
+            elif broker == 'xtb':
+                candidates, skipped = _parse_xtb_xlsx(raw)
+            else:
+                self._reply(400, {'error': f'Broker "{broker}" não suportado'})
+                return
+        except Exception as exc:
+            print(f"  import parse ({broker}): ERRO {exc}")
+            self._reply(400, {'error': f'Não foi possível ler o ficheiro: {exc}'})
+            return
+
+        conn = get_conn()
+        try:
+            positions = db_get_positions(conn)
+        finally:
+            conn.close()
+        by_isin   = {(p.get('isin') or '').strip().upper(): p for p in positions if p.get('isin')}
+        by_yf     = {(p.get('yfSymbol') or '').strip().upper(): p for p in positions if p.get('yfSymbol')}
+        by_ticker = {(p.get('ticker') or '').strip().upper(): p for p in positions if p.get('ticker')}
+
+        resolved_cache = {}
+        for c in candidates:
+            isin  = (c.get('isin') or '').strip().upper()
+            guess = (c.get('yfSymbolGuess') or '').strip().upper()
+            match = by_isin.get(isin) or by_yf.get(guess) or by_ticker.get(guess)
+
+            if match:
+                c['matched']       = True
+                c['ticker']        = match.get('ticker', '')
+                c['yfSymbol']      = match.get('yfSymbol', '')
+                c['assetType']     = match.get('type', '')
+                c['currency']      = match.get('currency', 'EUR')
+                c['priceCurrency'] = match.get('priceCurrency', 'EUR')
+            else:
+                c['matched'] = False
+                query = isin or guess or c.get('instrument', '')
+                if query not in resolved_cache:
+                    resolved_cache[query] = self._yf_resolve(query)
+                symbol, currency = resolved_cache[query]
+                c['ticker']        = symbol or guess or ''
+                c['yfSymbol']      = symbol or guess or ''
+                c['assetType']     = c.get('assetTypeGuess', 'stock')
+                c['currency']      = 'EUR'
+                c['priceCurrency'] = currency or 'EUR'
+                if not symbol:
+                    c['warning'] = 'símbolo Yahoo Finance não encontrado automaticamente — confirma/preenche antes de importar'
+
+        self._reply(200, {'transactions': candidates, 'skipped': skipped})
+
+    def _yf_resolve(self, query):
+        query = (query or '').strip()
+        if not query:
+            return None, None
+        try:
+            quotes = yf.Search(query).quotes
+            if not quotes:
+                return None, None
+            symbol = quotes[0].get('symbol')
+            if not symbol:
+                return None, None
+            try:
+                currency = (yf.Ticker(symbol).fast_info.currency or '').upper() or None
+            except Exception:
+                currency = None
+            return symbol, currency
+        except Exception as exc:
+            print(f"  yfinance resolve '{query}': ERRO {exc}")
+            return None, None
 
     # ── Helpers ───────────────────────────────────────────────────────────────
     def _load_config(self):

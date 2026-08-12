@@ -14,7 +14,10 @@
 <main class="tx-page">
     <div class="tx-header-row">
         <h1 class="tx-title" data-i18n="tx.title">Transações</h1>
-        <button class="btn-add" id="open-add-tx" data-i18n="tx.new_tx_btn">+ Nova Transação</button>
+        <div style="display:flex;gap:10px">
+            <button class="btn-secondary" id="open-import-tx" data-i18n="tx.import_btn">Importar ficheiro</button>
+            <button class="btn-add" id="open-add-tx" data-i18n="tx.new_tx_btn">+ Nova Transação</button>
+        </div>
     </div>
 
     <div class="tx-stats-bar">
@@ -230,6 +233,74 @@
         <div style="display:flex;gap:10px">
             <button class="btn-secondary" id="tx-cancel" data-i18n="pf.cancel">Cancelar</button>
             <button class="btn-primary"   id="tx-save" data-i18n="pf.add_confirm">Adicionar</button>
+        </div>
+    </div>
+
+</aside>
+
+<!-- ── Drawer: importar ficheiro ──────────────────────────── -->
+<div class="edit-backdrop" id="import-backdrop"></div>
+<aside class="edit-drawer wide" id="import-drawer">
+
+    <div class="edit-drawer-header">
+        <span class="edit-drawer-title" data-i18n="tx.import_title">Importar transações</span>
+        <button class="edit-close-btn" id="import-close">✕</button>
+    </div>
+
+    <div class="edit-drawer-body">
+        <!-- Passo 1: escolher corretora + ficheiro -->
+        <div id="import-step-file">
+            <div class="add-form-grid">
+                <label class="edit-label"><span data-i18n="tx.import_broker_label">Corretora</span>
+                    <select class="edit-input edit-type-sel" id="import-broker">
+                        <option value="xtb">XTB</option>
+                        <option value="tr">Trade Republic</option>
+                    </select>
+                </label>
+                <label class="edit-label"><span data-i18n="tx.import_file_label">Ficheiro</span>
+                    <input class="edit-input" id="import-file" type="file" accept=".csv,.xlsx">
+                </label>
+            </div>
+            <p class="dim" id="import-file-hint" style="font-size:12px;margin-top:4px" data-i18n="tx.import_file_hint_xtb">
+                Exporta o relatório de "Closed Positions" em Excel (.xlsx) no XTB.
+            </p>
+            <p id="import-error" style="color:var(--negative);font-size:12px;display:none;margin-top:8px"></p>
+        </div>
+
+        <!-- Passo 2: pré-visualização editável -->
+        <div id="import-step-preview" class="hidden">
+            <p class="modal-label" data-i18n="tx.import_preview_title" style="margin-bottom:10px">Pré-visualização — confirma antes de importar</p>
+            <div style="overflow-x:auto">
+                <table class="tx-table" id="import-preview-table">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th data-i18n="tx.import_col_kind">Tipo</th>
+                            <th data-i18n="tx.col_date">Data</th>
+                            <th data-i18n="tx.import_col_instrument">Instrumento</th>
+                            <th data-i18n="tx.import_col_symbol">Símbolo Yahoo</th>
+                            <th class="num" data-i18n="tx.import_col_volume">Vol.</th>
+                            <th class="num" data-i18n="tx.import_col_price">Preço (€)</th>
+                            <th class="num" data-i18n="tx.import_col_fee">Comissão (€)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="import-preview-body"></tbody>
+                </table>
+            </div>
+            <div id="import-skipped" style="margin-top:16px"></div>
+            <p id="import-commit-error" style="color:var(--negative);font-size:12px;display:none;margin-top:8px"></p>
+            <p id="import-progress" class="dim" style="font-size:12px;display:none;margin-top:8px"></p>
+        </div>
+    </div>
+
+    <div class="edit-drawer-footer">
+        <div>
+            <button class="btn-secondary hidden" id="import-back" data-i18n="tx.import_back_btn">Voltar</button>
+        </div>
+        <div style="display:flex;gap:10px">
+            <button class="btn-secondary" id="import-cancel" data-i18n="pf.cancel">Cancelar</button>
+            <button class="btn-primary"   id="import-analyze" data-i18n="tx.import_analyze_btn">Analisar ficheiro</button>
+            <button class="btn-primary hidden" id="import-commit" data-i18n="tx.import_commit_btn">Importar selecionadas</button>
         </div>
     </div>
 
@@ -566,35 +637,24 @@ document.getElementById('tx-ticker').addEventListener('input', function () {
 });
 document.getElementById('tx-new-yfsymbol').addEventListener('input', () => { txYfSymbolTouched = true; });
 
-document.getElementById('tx-save').addEventListener('click', async function () {
-    const errEl = document.getElementById('tx-error');
-    const showError = msg => { errEl.textContent = msg; errEl.style.display = 'block'; };
-    errEl.style.display = 'none';
-
-    const kind       = document.getElementById('tx-kind').value;
-    const broker     = document.getElementById('tx-broker').value;
-    const ticker     = document.getElementById('tx-ticker').value.trim().toUpperCase();
-    const instrument = document.getElementById('tx-instrument').value.trim();
-    const isin       = document.getElementById('tx-isin').value.trim();
-
-    if (!ticker || !instrument) { showError(t('tx.err_fill_ticker_instrument')); return; }
+// Núcleo partilhado: cria uma transação (compra/venda/dividendo), atualiza `positions`
+// e `txData` em memória, e persiste ambos. Usado pelo formulário manual e pela
+// importação de extratos (uma chamada por linha confirmada). Lança Error em caso de
+// falha de validação ou de gravação (já com rollback da transação, se aplicável).
+async function saveTransaction({ kind, broker, ticker, instrument, isin, newAsset, ...fields }) {
+    if (!ticker || !instrument) throw new Error(t('tx.err_fill_ticker_instrument'));
 
     const match = findPosition(isin, ticker);
     if (match && SPECIAL_TYPES.includes(match.type)) {
-        showError(t('tx.incompatible_type'));
-        return;
+        throw new Error(t('tx.incompatible_type'));
     }
 
     let tx;
 
     if (kind === 'buy') {
-        const volume      = +document.getElementById('tx-buy-volume').value;
-        const valorCompra = +document.getElementById('tx-buy-price').value;
-        const comissao    = +document.getElementById('tx-buy-fee').value || 0;
-        const dataCompra  = document.getElementById('tx-buy-date').value;
+        const { volume, valorCompra, comissao = 0, dataCompra } = fields;
         if (!(volume > 0) || !(valorCompra > 0) || !dataCompra) {
-            showError(t('tx.err_fill_buy'));
-            return;
+            throw new Error(t('tx.err_fill_buy'));
         }
 
         tx = {
@@ -610,10 +670,7 @@ document.getElementById('tx-save').addEventListener('click', async function () {
             match.units = newUnits;
             match.cost  = round2(match.units * match.avgBuyPrice);
         } else {
-            const type          = document.getElementById('tx-new-type').value;
-            const currency      = document.getElementById('tx-new-currency').value;
-            const yfSymbol      = document.getElementById('tx-new-yfsymbol').value.trim();
-            const priceCurrency = document.getElementById('tx-new-price-currency').value;
+            const { type, currency, yfSymbol, priceCurrency } = newAsset || {};
             positions.push({
                 isin: isin || ticker.toLowerCase() + '-' + Date.now(),
                 type, name: instrument, ticker,
@@ -624,19 +681,14 @@ document.getElementById('tx-save').addEventListener('click', async function () {
             });
         }
     } else if (kind === 'sell') {
-        if (!match) { showError(t('tx.err_no_position_sell')); return; }
+        if (!match) throw new Error(t('tx.err_no_position_sell'));
 
-        const volume     = +document.getElementById('tx-sell-volume').value;
-        const valorVenda = +document.getElementById('tx-sell-price').value;
-        const comissao   = +document.getElementById('tx-sell-fee').value || 0;
-        const dataVenda  = document.getElementById('tx-sell-date').value;
+        const { volume, valorVenda, comissao = 0, dataVenda } = fields;
         if (!(volume > 0) || !(valorVenda > 0) || !dataVenda) {
-            showError(t('tx.err_fill_sell'));
-            return;
+            throw new Error(t('tx.err_fill_sell'));
         }
         if (volume > match.units + 1e-9) {
-            showError(t('tx.err_not_enough_units', { units: match.units }));
-            return;
+            throw new Error(t('tx.err_not_enough_units', { units: match.units }));
         }
 
         const lucro     = round2((valorVenda - match.avgBuyPrice) * volume);
@@ -658,12 +710,9 @@ document.getElementById('tx-save').addEventListener('click', async function () {
             match.cost  = round2(match.units * match.avgBuyPrice);
         }
     } else {
-        const dividendoBruto  = +document.getElementById('tx-div-gross').value;
-        const impostoRetido   = +document.getElementById('tx-div-tax').value || 0;
-        const dataDividendo   = document.getElementById('tx-div-date').value;
+        const { dividendoBruto, impostoRetido = 0, dataDividendo } = fields;
         if (!(dividendoBruto > 0) || !dataDividendo) {
-            showError(t('tx.err_fill_dividend'));
-            return;
+            throw new Error(t('tx.err_fill_dividend'));
         }
 
         tx = {
@@ -675,36 +724,73 @@ document.getElementById('tx-save').addEventListener('click', async function () {
         if (isin) tx.isin = isin;
     }
 
+    const bucket = kind === 'buy' ? 'buy' : kind === 'sell' ? 'sell' : 'dividends';
+    txData.transactions[bucket].push(tx);
+
+    let resp = await fetch('/api/data/transactions.json', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(txData, null, 2),
+    });
+    if (!resp.ok) throw new Error((await resp.json()).error || t('tx.err_save_tx'));
+
+    if (kind !== 'dividend') {
+        resp = await fetch('/api/data/positions.json', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(positions, null, 2),
+        });
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            // Reverte a transação já gravada, para não ficar dessincronizada da posição
+            txData.transactions[bucket].pop();
+            await fetch('/api/data/transactions.json', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(txData, null, 2),
+            }).catch(() => {});
+            throw new Error((err.error || t('tx.err_save_position')) + t('tx.reverted_suffix'));
+        }
+    }
+}
+
+document.getElementById('tx-save').addEventListener('click', async function () {
+    const errEl = document.getElementById('tx-error');
+    const showError = msg => { errEl.textContent = msg; errEl.style.display = 'block'; };
+    errEl.style.display = 'none';
+
+    const kind       = document.getElementById('tx-kind').value;
+    const broker     = document.getElementById('tx-broker').value;
+    const ticker     = document.getElementById('tx-ticker').value.trim().toUpperCase();
+    const instrument = document.getElementById('tx-instrument').value.trim();
+    const isin       = document.getElementById('tx-isin').value.trim();
+
+    const fields = { kind, broker, ticker, instrument, isin };
+
+    if (kind === 'buy') {
+        fields.volume      = +document.getElementById('tx-buy-volume').value;
+        fields.valorCompra = +document.getElementById('tx-buy-price').value;
+        fields.comissao    = +document.getElementById('tx-buy-fee').value || 0;
+        fields.dataCompra  = document.getElementById('tx-buy-date').value;
+        fields.newAsset = {
+            type:          document.getElementById('tx-new-type').value,
+            currency:      document.getElementById('tx-new-currency').value,
+            yfSymbol:      document.getElementById('tx-new-yfsymbol').value.trim(),
+            priceCurrency: document.getElementById('tx-new-price-currency').value,
+        };
+    } else if (kind === 'sell') {
+        fields.volume     = +document.getElementById('tx-sell-volume').value;
+        fields.valorVenda = +document.getElementById('tx-sell-price').value;
+        fields.comissao   = +document.getElementById('tx-sell-fee').value || 0;
+        fields.dataVenda  = document.getElementById('tx-sell-date').value;
+    } else {
+        fields.dividendoBruto = +document.getElementById('tx-div-gross').value;
+        fields.impostoRetido  = +document.getElementById('tx-div-tax').value || 0;
+        fields.dataDividendo  = document.getElementById('tx-div-date').value;
+    }
+
     const btn = this;
     btn.textContent = t('pf.saving');
     btn.disabled = true;
     try {
-        const bucket = kind === 'buy' ? 'buy' : kind === 'sell' ? 'sell' : 'dividends';
-        txData.transactions[bucket].push(tx);
-
-        let resp = await fetch('/api/data/transactions.json', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(txData, null, 2),
-        });
-        if (!resp.ok) throw new Error((await resp.json()).error || t('tx.err_save_tx'));
-
-        if (kind !== 'dividend') {
-            resp = await fetch('/api/data/positions.json', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(positions, null, 2),
-            });
-            if (!resp.ok) {
-                const err = await resp.json().catch(() => ({}));
-                // Reverte a transação já gravada, para não ficar dessincronizada da posição
-                txData.transactions[bucket].pop();
-                await fetch('/api/data/transactions.json', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(txData, null, 2),
-                }).catch(() => {});
-                throw new Error((err.error || t('tx.err_save_position')) + t('tx.reverted_suffix'));
-            }
-        }
-
+        await saveTransaction(fields);
         closeTxDrawer();
         await load();
     } catch (e) {
@@ -713,6 +799,231 @@ document.getElementById('tx-save').addEventListener('click', async function () {
         btn.textContent = t('pf.add_confirm');
         btn.disabled = false;
     }
+});
+
+// ── Importar ficheiro (CSV Trade Republic / Excel XTB) ──────────────────────
+let importBroker     = 'xtb';
+let importCandidates = [];
+let importSkipped    = [];
+
+function openImportDrawer() {
+    document.getElementById('import-backdrop').classList.add('open');
+    document.getElementById('import-drawer').classList.add('open');
+    resetImportForm();
+}
+function closeImportDrawer() {
+    document.getElementById('import-backdrop').classList.remove('open');
+    document.getElementById('import-drawer').classList.remove('open');
+}
+function resetImportForm() {
+    importCandidates = [];
+    importSkipped = [];
+    document.getElementById('import-file').value = '';
+    document.getElementById('import-broker').value = 'xtb';
+    document.getElementById('import-error').style.display = 'none';
+    document.getElementById('import-commit-error').style.display = 'none';
+    document.getElementById('import-progress').style.display = 'none';
+    updateImportFileHint();
+    showImportStep('file');
+}
+
+function updateImportFileHint() {
+    const broker = document.getElementById('import-broker').value;
+    const key = broker === 'xtb' ? 'tx.import_file_hint_xtb' : 'tx.import_file_hint_tr';
+    document.getElementById('import-file-hint').textContent = t(key);
+    document.getElementById('import-file').setAttribute('accept', broker === 'xtb' ? '.xlsx' : '.csv');
+}
+
+function showImportStep(step) {
+    document.getElementById('import-step-file').classList.toggle('hidden', step !== 'file');
+    document.getElementById('import-step-preview').classList.toggle('hidden', step !== 'preview');
+    document.getElementById('import-analyze').classList.toggle('hidden', step !== 'file');
+    document.getElementById('import-commit').classList.toggle('hidden', step !== 'preview');
+    document.getElementById('import-back').classList.toggle('hidden', step !== 'preview');
+}
+
+document.getElementById('open-import-tx').addEventListener('click', openImportDrawer);
+document.getElementById('import-close').addEventListener('click', closeImportDrawer);
+document.getElementById('import-cancel').addEventListener('click', closeImportDrawer);
+document.getElementById('import-backdrop').addEventListener('click', closeImportDrawer);
+document.getElementById('import-broker').addEventListener('change', updateImportFileHint);
+document.getElementById('import-back').addEventListener('click', () => showImportStep('file'));
+
+document.getElementById('import-analyze').addEventListener('click', async function () {
+    const errEl = document.getElementById('import-error');
+    errEl.style.display = 'none';
+
+    const file = document.getElementById('import-file').files[0];
+    if (!file) { errEl.textContent = t('tx.import_err_no_file'); errEl.style.display = 'block'; return; }
+
+    importBroker = document.getElementById('import-broker').value;
+    const btn = this;
+    btn.textContent = t('tx.import_analyzing');
+    btn.disabled = true;
+    try {
+        const buf  = await file.arrayBuffer();
+        const resp = await fetch(`/api/import/parse?broker=${importBroker}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/octet-stream' },
+            body: buf,
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || t('tx.import_err_parse'));
+
+        importCandidates = (data.transactions || [])
+            .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+            .map(c => ({ ...c, _include: true }));
+        importSkipped = data.skipped || [];
+
+        renderImportSkipped();
+        if (!importCandidates.length) {
+            errEl.textContent = t('tx.import_no_candidates');
+            errEl.style.display = 'block';
+            return;
+        }
+        renderImportPreview();
+        showImportStep('preview');
+    } catch (e) {
+        errEl.textContent = e.message || t('tx.import_err_parse');
+        errEl.style.display = 'block';
+    } finally {
+        btn.textContent = t('tx.import_analyze_btn');
+        btn.disabled = false;
+    }
+});
+
+function renderImportPreview() {
+    const body = document.getElementById('import-preview-body');
+    body.innerHTML = importCandidates.map((c, i) => {
+        const kindLabel = c.kind === 'buy' ? t('tx.opt_kind_buy')
+            : c.kind === 'sell' ? t('tx.opt_kind_sell') : t('tx.opt_kind_dividend');
+        const newBadge = !c.matched
+            ? ` <span class="tx-broker tx-broker-xtb" style="font-size:10px">${t('tx.import_new_asset_badge')}</span>` : '';
+        const symbolCell = c.matched
+            ? `<span>${c.yfSymbol || ''}</span><br><span class="dim" style="font-size:11px">${t('tx.import_matched_label')}</span>`
+            : `<input class="edit-input" style="width:110px" data-field="yfSymbol" data-idx="${i}" value="${c.yfSymbol || ''}">
+               <select class="edit-input edit-type-sel" style="width:110px;margin-top:4px" data-field="assetType" data-idx="${i}">
+                   ${['stock', 'etf', 'crypto', 'commodity'].map(ty =>
+                       `<option value="${ty}" ${c.assetType === ty ? 'selected' : ''}>${t('pf.opt_' + ty)}</option>`).join('')}
+               </select>
+               ${c.warning ? `<div style="color:var(--negative);font-size:11px;margin-top:2px">${t('tx.import_warning_symbol')}</div>` : ''}`;
+
+        return `
+        <tr>
+            <td><input type="checkbox" class="import-row-check" data-idx="${i}" ${c._include ? 'checked' : ''}></td>
+            <td>${kindLabel}${newBadge}</td>
+            <td class="tx-date">${c.date}</td>
+            <td>${c.instrument}${c.isin ? `<br><span class="tx-isin">${c.isin}</span>` : ''}</td>
+            <td>${symbolCell}</td>
+            <td class="num"><input class="edit-input" style="width:70px;text-align:right" data-field="volume" data-idx="${i}" type="number" step="any" value="${c.volume}"></td>
+            <td class="num"><input class="edit-input" style="width:80px;text-align:right" data-field="price" data-idx="${i}" type="number" step="any" value="${c.price}"></td>
+            <td class="num"><input class="edit-input" style="width:70px;text-align:right" data-field="fee" data-idx="${i}" type="number" step="any" value="${c.fee || 0}"></td>
+        </tr>`;
+    }).join('');
+
+    body.querySelectorAll('.import-row-check').forEach(cb => {
+        cb.addEventListener('change', function () {
+            importCandidates[+this.dataset.idx]._include = this.checked;
+            updateImportCommitLabel();
+        });
+    });
+    body.querySelectorAll('[data-field]').forEach(el => {
+        el.addEventListener('input', function () {
+            const idx   = +this.dataset.idx;
+            const field = this.dataset.field;
+            if (field === 'volume' || field === 'price' || field === 'fee') {
+                importCandidates[idx][field] = +this.value;
+            } else if (field === 'yfSymbol') {
+                const v = this.value.trim().toUpperCase();
+                importCandidates[idx].yfSymbol = v;
+                importCandidates[idx].ticker   = v;
+            } else {
+                importCandidates[idx][field] = this.value;
+            }
+        });
+    });
+    updateImportCommitLabel();
+}
+
+function updateImportCommitLabel() {
+    const n = importCandidates.filter(c => c._include).length;
+    document.getElementById('import-commit').textContent = t('tx.import_commit_btn', { n });
+}
+
+function renderImportSkipped() {
+    const el = document.getElementById('import-skipped');
+    if (!importSkipped.length) { el.innerHTML = ''; return; }
+    el.innerHTML = `
+        <p class="dim" style="font-size:12px;margin-bottom:6px">${t('tx.import_skipped_title', { n: importSkipped.length })}</p>
+        <ul style="font-size:12px;color:var(--muted);margin:0;padding-left:18px">
+            ${importSkipped.map(s => `<li>${s.date ? s.date + ' — ' : ''}${s.name}: ${s.reason}</li>`).join('')}
+        </ul>`;
+}
+
+document.getElementById('import-commit').addEventListener('click', async function () {
+    const errEl  = document.getElementById('import-commit-error');
+    const progEl = document.getElementById('import-progress');
+    errEl.style.display = 'none';
+
+    const toImport = importCandidates.filter(c => c._include);
+    if (!toImport.length) return;
+
+    const btn = this;
+    btn.disabled = true;
+    progEl.style.display = 'block';
+    let ok = 0, fail = 0;
+    const failures = [];
+
+    for (let i = 0; i < toImport.length; i++) {
+        const c = toImport[i];
+        progEl.textContent = t('tx.import_importing', { done: i + 1, total: toImport.length });
+
+        const fields = {
+            kind: c.kind,
+            broker: importBroker === 'xtb' ? 'XTB' : 'TradeRepublic',
+            ticker: (c.ticker || c.yfSymbol || '').toUpperCase(),
+            instrument: c.instrument,
+            isin: c.isin || '',
+        };
+        if (c.kind === 'buy') {
+            fields.volume      = c.volume;
+            fields.valorCompra = c.price;
+            fields.comissao    = c.fee || 0;
+            fields.dataCompra  = c.date;
+            fields.newAsset = {
+                type: c.assetType || 'stock', currency: 'EUR',
+                yfSymbol: c.yfSymbol || '', priceCurrency: c.priceCurrency || 'EUR',
+            };
+        } else if (c.kind === 'sell') {
+            fields.volume     = c.volume;
+            fields.valorVenda = c.price;
+            fields.comissao   = c.fee || 0;
+            fields.dataVenda  = c.date;
+        } else {
+            fields.dividendoBruto = c.price;
+            fields.impostoRetido  = 0;
+            fields.dataDividendo  = c.date;
+        }
+
+        try {
+            await saveTransaction(fields);
+            ok++;
+        } catch (e) {
+            fail++;
+            failures.push(`${c.date} ${c.instrument}: ${e.message}`);
+        }
+    }
+
+    progEl.style.display = 'none';
+    btn.disabled = false;
+
+    if (fail > 0) {
+        errEl.innerHTML = t('tx.import_done_with_fails', { ok, fail }) + '<br>' + failures.map(f => `· ${f}`).join('<br>');
+        errEl.style.display = 'block';
+    } else {
+        closeImportDrawer();
+    }
+    await load();
 });
 
 load();
