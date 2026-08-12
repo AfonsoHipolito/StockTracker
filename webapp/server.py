@@ -50,8 +50,9 @@ def init_db_if_needed():
         if row is None:
             schema = (ROOT / 'db' / 'schema.sql').read_text()
             conn.executescript(schema)
+            db_save_positions(conn, DEMO_POSITIONS)
             conn.commit()
-            print(f"  BD criada de raiz em {DB_PATH}")
+            print(f"  BD criada de raiz em {DB_PATH}, com posições de demonstração")
     finally:
         conn.close()
 
@@ -172,6 +173,62 @@ def db_save_positions(conn, positions):
             p.get('investedAmount'), p.get('annualReturn'), p.get('investmentMonths'),
             p.get('startDate'), int(bool(p.get('finalizado'))),
         ))
+
+# Posições de demonstração — inseridas só quando a BD é criada de raiz (ver
+# init_db_if_needed), para uma primeira experiência com a app já com dados
+# visuais em vez de "Sem ativos." em todo o lado. Não têm nenhum tratamento
+# especial: são posições normais, editáveis/apagáveis como quaisquer outras.
+# yfSymbol reais para o botão de atualizar preço funcionar de imediato.
+DEMO_POSITIONS = [
+    {
+        'isin': 'googl-demo', 'type': 'stock', 'name': 'Alphabet Inc. (Google)',
+        'ticker': 'GOOGL', 'yfSymbol': 'GOOGL', 'priceCurrency': 'USD', 'bg': '#2a1a08',
+        'currency': 'EUR', 'reinvest': False,
+        'units': 4.822, 'avgBuyPrice': 290.36, 'currentPrice': 343.80, 'cost': 1400.12,
+    },
+    {
+        'isin': 'nvda-demo', 'type': 'stock', 'name': 'NVIDIA Corporation',
+        'ticker': 'NVDA', 'yfSymbol': 'NVDA', 'priceCurrency': 'USD', 'bg': '#2a1a08',
+        'currency': 'EUR', 'reinvest': False,
+        'units': 16.104, 'avgBuyPrice': 161.47, 'currentPrice': 217.50, 'cost': 2600.31,
+    },
+    {
+        'isin': 'vuaa-demo', 'type': 'etf', 'name': 'Vanguard S&P 500 UCITS ETF',
+        'ticker': 'VUAA', 'yfSymbol': 'VUAA.DE', 'priceCurrency': 'EUR', 'bg': '#0d2035',
+        'currency': 'EUR', 'reinvest': False,
+        'units': 32.007, 'avgBuyPrice': 118.72, 'currentPrice': 129.635, 'cost': 3799.87,
+    },
+    {
+        'isin': 'vvsm-demo', 'type': 'etf', 'name': 'VanEck Semiconductor UCITS ETF',
+        'ticker': 'VVSM', 'yfSymbol': 'VVSM.DE', 'priceCurrency': 'EUR', 'bg': '#0d2035',
+        'currency': 'EUR', 'reinvest': False,
+        'units': 8.458, 'avgBuyPrice': 106.41, 'currentPrice': 93.00, 'cost': 900.02,
+    },
+    {
+        'isin': 'btc-demo', 'type': 'crypto', 'name': 'Bitcoin',
+        'ticker': 'BTC', 'yfSymbol': 'BTC-EUR', 'priceCurrency': 'EUR', 'bg': '#2a0a0d',
+        'currency': 'EUR', 'reinvest': False,
+        'units': 0.0334, 'avgBuyPrice': 37380.17, 'currentPrice': 55059.99, 'cost': 1248.50,
+    },
+    {
+        'isin': 'eth-demo', 'type': 'crypto', 'name': 'Ethereum',
+        'ticker': 'ETH', 'yfSymbol': 'ETH-EUR', 'priceCurrency': 'EUR', 'bg': '#2a0a0d',
+        'currency': 'EUR', 'reinvest': False,
+        'units': 0.3566, 'avgBuyPrice': 1747.00, 'currentPrice': 1628.00, 'cost': 622.98,
+    },
+    {
+        'isin': 'gold-demo', 'type': 'commodity', 'name': 'Gold',
+        'ticker': 'XAU', 'yfSymbol': 'GC=F', 'priceCurrency': 'USD', 'bg': '#2a1e00',
+        'currency': 'EUR', 'reinvest': False,
+        'units': 0.2572, 'avgBuyPrice': 3628.99, 'currentPrice': 4430.00, 'cost': 933.38,
+    },
+    {
+        'isin': 'silver-demo', 'type': 'commodity', 'name': 'Silver',
+        'ticker': 'XAG', 'yfSymbol': 'SI=F', 'priceCurrency': 'USD', 'bg': '#2a1e00',
+        'currency': 'EUR', 'reinvest': False,
+        'units': 8.7365, 'avgBuyPrice': 46.74, 'currentPrice': 64.925, 'cost': 408.34,
+    },
+]
 
 # ── transactions ─────────────────────────────────────────────────────────────
 def db_get_transactions(conn):

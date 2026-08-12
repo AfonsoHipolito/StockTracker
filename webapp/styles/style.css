@@ -1340,7 +1340,10 @@ tr.drag-over   { background: var(--bg-hover); outline: 1px dashed var(--accent);
     border-radius: 16px;
     width: 360px;
     max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 48px);
     box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+    display: flex;
+    flex-direction: column;
 }
 
 .modal-header {
@@ -1349,6 +1352,7 @@ tr.drag-over   { background: var(--bg-hover); outline: 1px dashed var(--accent);
     justify-content: space-between;
     padding: 18px 20px 16px;
     border-bottom: 1px solid #2a2a2a;
+    flex-shrink: 0;
 }
 
 .modal-title { font-size: 15px; font-weight: 600; }
@@ -1369,8 +1373,12 @@ tr.drag-over   { background: var(--bg-hover); outline: 1px dashed var(--accent);
     padding: 20px;
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
     gap: 14px;
+    overflow-y: auto;
 }
+.modal-body > * { align-self: stretch; }
+.modal-body > .nav-lang { align-self: flex-start; }
 
 .alert-asset-name {
     font-size: 16px;

@@ -5,6 +5,12 @@ const SETTINGS_ASSET_TYPES = [
     { key: 'crypto' }, { key: 'realestate' }, { key: 'bonds' },
 ];
 
+// Mesmos ISINs fictícios usados em DEMO_POSITIONS no server.py — têm de ficar sincronizados.
+const DEMO_ISINS = [
+    'googl-demo', 'nvda-demo', 'vuaa-demo', 'vvsm-demo',
+    'btc-demo', 'eth-demo', 'gold-demo', 'silver-demo',
+];
+
 function mountNavbar(activePage) {
     const el = document.getElementById('navbar');
     if (!el) return;
@@ -42,7 +48,7 @@ function mountNavbar(activePage) {
                 <span id="bell-badge" class="bell-badge hidden">0</span>
                 <div id="bell-dropdown" class="bell-dropdown hidden">
                     <div class="bell-dropdown-header">
-                        <span>${t('nav.notifications')}</span>
+                        <span>Coming soon...</span> <!-- ${t('nav.notifications')} -->
                         <button id="bell-clear-all" class="bell-clear-btn">${t('nav.clear')}</button>
                     </div>
                     <ul id="bell-list" class="bell-list"></ul>
@@ -108,6 +114,11 @@ function mountNavbar(activePage) {
                     <label class="edit-reinvest-label" style="display:flex">
                         <input type="checkbox" id="settings-show-total"> ${t('settings.show_total')}
                     </label>
+
+                    <div class="profile-menu-divider" style="margin:16px 0"></div>
+                    <label class="modal-label" style="display:block;margin-bottom:6px">${t('settings.demo_data_label')}</label>
+                    <p style="font-size:12px;color:#555;margin:0 0 8px">${t('settings.demo_data_hint')}</p>
+                    <button class="btn-secondary" id="settings-clear-demo" type="button">${t('settings.clear_demo_btn')}</button>
 
                     <div class="modal-actions" style="margin-top:16px">
                         <button class="btn-secondary" id="settings-cancel">${t('settings.cancel')}</button>
@@ -243,6 +254,34 @@ function initProfile() {
             updateSettingsLangButtons();
         });
     });
+
+    document.getElementById('settings-clear-demo')?.addEventListener('click', clearDemoData);
+}
+
+async function clearDemoData() {
+    if (!confirm(t('settings.confirm_clear_demo'))) return;
+    const btn = document.getElementById('settings-clear-demo');
+    const original = btn.textContent;
+    btn.disabled = true;
+    try {
+        const positions = await fetch('/api/data/positions.json?_=' + Date.now()).then(r => r.json());
+        const kept = positions.filter(p => !DEMO_ISINS.includes(p.isin));
+        const removed = positions.length - kept.length;
+        if (removed > 0) {
+            const resp = await fetch('/api/data/positions.json', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(kept, null, 2),
+            });
+            if (!resp.ok) throw new Error();
+            btn.textContent = t('settings.demo_cleared', { n: removed });
+        } else {
+            btn.textContent = t('settings.no_demo_found');
+        }
+    } catch {
+        btn.textContent = t('settings.clear_demo_error');
+    } finally {
+        setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2500);
+    }
 }
 
 // ── Idioma (aplicado só ao Guardar) ──────────────────────────────────────────

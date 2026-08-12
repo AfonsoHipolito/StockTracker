@@ -1206,6 +1206,15 @@ document.getElementById('add-type').addEventListener('change', function () {
     document.getElementById('add-realestate-fields').classList.toggle('hidden', !isFixed);
 });
 
+// Pré-preenche o Símbolo Yahoo Finance a partir do Ticker, enquanto o
+// utilizador não editar esse campo diretamente (ex: para acrescentar ".DE").
+let yfSymbolTouched = false;
+document.getElementById('add-ticker').addEventListener('input', function () {
+    if (yfSymbolTouched) return;
+    document.getElementById('add-yfsymbol').value = this.value.trim().toUpperCase();
+});
+document.getElementById('add-yfsymbol').addEventListener('input', () => { yfSymbolTouched = true; });
+
 document.getElementById('show-add-form').addEventListener('click', function () {
     document.getElementById('add-form').classList.remove('hidden');
     document.getElementById('edit-drawer-body').scrollTop = 0;
@@ -1284,6 +1293,7 @@ function clearAddForm() {
     ['add-name', 'add-ticker', 'add-units', 'add-avg', 'add-cur', 'add-yfsymbol', 'add-isin',
      'add-invested', 'add-annual-return', 'add-start-date']
         .forEach(id => { const el = document.getElementById(id); if (el) { el.value = ''; el.style.borderColor = ''; } });
+    yfSymbolTouched = false;
     document.getElementById('add-reinvest').checked = false;
     document.getElementById('add-finalizado').checked = false;
     document.getElementById('add-price-currency').value = 'EUR';

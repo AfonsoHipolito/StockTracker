@@ -487,6 +487,7 @@ function resetTxForm() {
     ['tx-ticker', 'tx-instrument', 'tx-isin', 'tx-buy-volume', 'tx-buy-price', 'tx-buy-fee',
      'tx-sell-volume', 'tx-sell-price', 'tx-sell-fee', 'tx-div-gross', 'tx-div-tax', 'tx-new-yfsymbol']
         .forEach(id => { document.getElementById(id).value = ''; });
+    txYfSymbolTouched = false;
 
     const today = new Date().toISOString().slice(0, 10);
     document.getElementById('tx-buy-date').value  = today;
@@ -555,6 +556,15 @@ document.getElementById('tx-kind').addEventListener('change', function () {
 ['tx-ticker', 'tx-isin'].forEach(id => {
     document.getElementById(id).addEventListener('input', updateTxMatchInfo);
 });
+
+// Pré-preenche o Símbolo Yahoo Finance a partir do Ticker, enquanto o
+// utilizador não editar esse campo diretamente (ex: para acrescentar ".DE").
+let txYfSymbolTouched = false;
+document.getElementById('tx-ticker').addEventListener('input', function () {
+    if (txYfSymbolTouched) return;
+    document.getElementById('tx-new-yfsymbol').value = this.value.trim().toUpperCase();
+});
+document.getElementById('tx-new-yfsymbol').addEventListener('input', () => { txYfSymbolTouched = true; });
 
 document.getElementById('tx-save').addEventListener('click', async function () {
     const errEl = document.getElementById('tx-error');
